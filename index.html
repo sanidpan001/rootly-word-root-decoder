@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rootly — Free Word Root Decoder: English Root Words List &amp; Greek Latin Roots Dictionary</title>
+<meta name="description" content="Rootly is a free word root decoder that breaks any English word into Greek, Latin and Germanic morphemes. Browse a 285-entry english root words list, grow word-family trees, take the greek latin roots quiz and study GRE/SAT root packs — no signup needed.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script id="v3-rootly-word-root-decoder-lib">
+/* Rootly pure logic lib — word root decoder.
+ * Pure functions only. No document/window/localStorage/navigator access.
+ * Data compiled from public etymological knowledge (Greek/Latin/Germanic roots).
+ * o: L=Latin, G=Greek, E=Germanic, M=Mixed/cognate.
+ */
+'use strict';
+
+/* ---------------- origin helpers ---------------- */
+var RL_ORIGIN_NAME = { L: 'Latin', G: 'Greek', E: 'Germanic', M: 'Mixed' };
+
+function rlOriginName(code) {
+  return RL_ORIGIN_NAME[code] || 'Mixed';
+}
+
+/* Origin -> palette color (used for color-coding morphemes) */
+function rlOriginColor(origin) {
+  var o = String(origin || '').toLowerCase();
+  if (o === 'greek') return '#7c3aed';
+  if (o === 'latin') return '#f59e0b';
+  if (o === 'germanic') return '#10b981';
+  return '#64748b';
+}
+
+/* ---------------- prefix table ---------------- */
+var RL_PREFIXES = [
+  { p: 'trans', o: 'L', m: 'across, beyond' },
+  { p: 'counter', o: 'L', m: 'against, opposite' },
+  { p: 'contra', o: 'L', m: 'against, opposite' },
+  { p: 'circum', o: 'L', m: 'around' },
+  { p: 'hyper', o: 'G', m: 'over, beyond, excessive' },
+  { p: 'hypo', o: 'G', m: 'under, below, less' },
+  { p: 'micro', o: 'G', m: 'small' },
+  { p: 'macro', o: 'G', m: 'large' },
+  { p: 'mega', o: 'G', m: 'great, million' },
+  { p: 'hetero', o: 'G', m: 'different, other' },
+  { p: 'homo', o: 'G', m: 'same' },
+  { p: 'pseudo', o: 'G', m: 'false' },
+  { p: 'paleo', o: 'G', m: 'old, ancient' },
+  { p: 'tele', o: 'G', m: 'far, distant' },
+  { p: 'auto', o: 'G', m: 'self' },
+  { p: 'cata', o: 'G', m: 'down, against' },
+  { p: 'ana', o: 'G', m: 'up, back, again' },
+  { p: 'apo', o: 'G', m: 'away, from' },
+  { p: 'epi', o: 'G', m: 'upon, over' },
+  { p: 'peri', o: 'G', m: 'around' },
+  { p: 'dia', o: 'G', m: 'through, across' },
+  { p: 'para', o: 'G', m: 'beside, beyond' },
+  { p: 'meta', o: 'G', m: 'beyond, change' },
+  { p: 'amphi', o: 'G', m: 'both, around' },
+  { p: 'hemi', o: 'G', m: 'half' },
+  { p: 'tetra', o: 'G', m: 'four' },
+  { p: 'penta', o: 'G', m: 'five' },
+  { p: 'hexa', o: 'G', m: 'six' },
+  { p: 'octa', o: 'G', m: 'eight' },
+  { p: 'deca', o: 'G', m: 'ten' },
+  { p: 'hecto', o: 'G', m: 'hundred' },
+  { p: 'kilo', o: 'G', m: 'thousand' },
+  { p: 'dys', o: 'G', m: 'bad, ill, difficult' },
+  { p: 'eu', o: 'G', m: 'good, well' },
+  { p: 'anti', o: 'G', m: 'against' },
+  { p: 'syn', o: 'G', m: 'together, with' },
+  { p: 'sym', o: 'G', m: 'together, with' },
+  { p: 'mono', o: 'G', m: 'one, single' },
+  { p: 'poly', o: 'G', m: 'many' },
+  { p: 'di', o: 'G', m: 'two' },
+  { p: 'tri', o: 'G', m: 'three' },
+  { p: 'pan', o: 'G', m: 'all' },
+  { p: 'omni', o: 'L', m: 'all' },
+  { p: 'semi', o: 'L', m: 'half' },
+  { p: 'uni', o: 'L', m: 'one' },
+  { p: 'bi', o: 'L', m: 'two' },
+  { p: 'multi', o: 'L', m: 'many' },
+  { p: 'ultra', o: 'L', m: 'beyond, extreme' },
+  { p: 'extra', o: 'L', m: 'outside, beyond' },
+  { p: 'intra', o: 'L', m: 'within' },
+  { p: 'intro', o: 'L', m: 'inward' },
+  { p: 'retro', o: 'L', m: 'backward' },
+  { p: 'ante', o: 'L', m: 'before' },
+  { p: 'post', o: 'L', m: 'after' },
+  { p: 'pre', o: 'L', m: 'before' },
+  { p: 'pro', o: 'L', m: 'forward, for, before' },
+  { p: 're', o: 'L', m: 'again, back' },
+  { p: 'de', o: 'L', m: 'down, away, off' },
+  { p: 'dis', o: 'L', m: 'apart, not' },
+  { p: 'ex', o: 'L', m: 'out of, from' },
+  { p: 'ab', o: 'L', m: 'away from' },
+  { p: 'ad', o: 'L', m: 'to, toward' },
+  { p: 'ob', o: 'L', m: 'against, toward' },
+  { p: 'sub', o: 'L', m: 'under, below' },
+  { p: 'super', o: 'L', m: 'above, beyond' },
+  { p: 'sur', o: 'L', m: 'above, over' },
+  { p: 'inter', o: 'L', m: 'between, among' },
+  { p: 'in', o: 'L', m: 'in, into; also not' },
+  { p: 'im', o: 'L', m: 'in, into; also not' },
+  { p: 'il', o: 'L', m: 'in, into; also not' },
+  { p: 'ir', o: 'L', m: 'in, into; also not' },
+  { p: 'en', o: 'L', m: 'in, into' },
+  { p: 'em', o: 'L', m: 'in, into' },
+  { p: 'co', o: 'L', m: 'with, together' },
+  { p: 'com', o: 'L', m: 'with, together' },
+  { p: 'con', o: 'L', m: 'with, together' },
+  { p: 'col', o: 'L', m: 'with, together' },
+  { p: 'cor', o: 'L', m: 'with, together' },
+  { p: 'non', o: 'L', m: 'not' },
+  { p: 'a', o: 'G', m: 'without, not' },
+  { p: 'an', o: 'G', m: 'without, not' },
+  { p: 'ambi', o: 'L', m: 'both' },
+  { p: 'mis', o: 'E', m: 'wrongly, badly' },
+  { p: 'over', o: 'E', m: 'above, too much' },
+  { p: 'under', o: 'E', m: 'below, too little' },
+  { p: 'fore', o: 'E', m: 'before' },
+  { p: 'mid', o: 'E', m: 'middle' },
+  { p: 'out', o: 'E', m: 'beyond, outside' },
+  { p: 'up', o: 'E', m: 'up' },
+  { p: 'un', o: 'E', m: 'not, reverse' },
+  { p: 'with', o: 'E', m: 'against, back' },
+  { p: 'be', o: 'E', m: 'intensive, make' }
+];
+
+/* ---------------- suffix table ---------------- */
+var RL_SUFFIXES = [
+  { s: 'ocracy', o: 'G', m: 'rule by' },
+  { s: 'ology', o: 'G', m: 'study of' },
+  { s: 'logy', o: 'G', m: 'study of' },
+  { s: 'phobia', o: 'G', m: 'fear of' },
+  { s: 'phile', o: 'G', m: 'lover of' },
+  { s: 'cracy', o: 'G', m: 'rule by' },
+  { s: 'graph', o: 'G', m: 'writing, recording' },
+  { s: 'gram', o: 'G', m: 'written, drawn thing' },
+  { s: 'meter', o: 'G', m: 'measure' },
+  { s: 'scope', o: 'G', m: 'instrument for seeing' },
+  { s: 'phone', o: 'G', m: 'sound' },
+  { s: 'crat', o: 'G', m: 'ruler' },
+  { s: 'archy', o: 'G', m: 'rule, government' },
+  { s: 'tomy', o: 'G', m: 'cutting, incision' },
+  { s: 'pathy', o: 'G', m: 'suffering, disease of' },
+  { s: 'mania', o: 'G', m: 'madness for, craze' },
+  { s: 'gamy', o: 'G', m: 'marriage' },
+  { s: 'gon', o: 'G', m: 'angled figure' },
+  { s: 'hedron', o: 'G', m: 'sided solid' },
+  { s: 'oid', o: 'G', m: 'like, resembling' },
+  { s: 'ation', o: 'L', m: 'act or result of' },
+  { s: 'ition', o: 'L', m: 'act or result of' },
+  { s: 'tion', o: 'L', m: 'act, state of' },
+  { s: 'sion', o: 'L', m: 'act, state of' },
+  { s: 'ion', o: 'L', m: 'act, state of' },
+  { s: 'ia', o: 'L', m: 'state, condition of' },
+  { s: 'ment', o: 'L', m: 'act, result of' },
+  { s: 'ness', o: 'E', m: 'state, quality of' },
+  { s: 'ity', o: 'L', m: 'state, quality of' },
+  { s: 'ty', o: 'L', m: 'state, quality of' },
+  { s: 'ism', o: 'G', m: 'belief, practice, condition' },
+  { s: 'ist', o: 'G', m: 'one who does or believes' },
+  { s: 'er', o: 'E', m: 'one who does' },
+  { s: 'or', o: 'L', m: 'one who does' },
+  { s: 'ess', o: 'E', m: 'female' },
+  { s: 'ster', o: 'E', m: 'one who' },
+  { s: 'ly', o: 'E', m: 'in the manner of, like' },
+  { s: 'ful', o: 'E', m: 'full of' },
+  { s: 'less', o: 'E', m: 'without' },
+  { s: 'ous', o: 'L', m: 'full of, having' },
+  { s: 'ious', o: 'L', m: 'full of, having' },
+  { s: 'eous', o: 'L', m: 'full of, having' },
+  { s: 'al', o: 'L', m: 'relating to' },
+  { s: 'ial', o: 'L', m: 'relating to' },
+  { s: 'ic', o: 'G', m: 'relating to, like' },
+  { s: 'ical', o: 'G', m: 'relating to, like' },
+  { s: 'ive', o: 'L', m: 'tending to' },
+  { s: 'able', o: 'L', m: 'capable of, fit for' },
+  { s: 'ible', o: 'L', m: 'capable of, fit for' },
+  { s: 'ize', o: 'G', m: 'to make, to become' },
+  { s: 'ise', o: 'G', m: 'to make, to become' },
+  { s: 'ify', o: 'L', m: 'to make' },
+  { s: 'fy', o: 'L', m: 'to make' },
+  { s: 'ate', o: 'L', m: 'to make, having' },
+  { s: 'en', o: 'E', m: 'to make, become' },
+  { s: 'ward', o: 'E', m: 'toward, in the direction of' },
+  { s: 'ship', o: 'E', m: 'state, office, skill of' },
+  { s: 'dom', o: 'E', m: 'state, realm of' },
+  { s: 'hood', o: 'E', m: 'state, condition of' },
+  { s: 'age', o: 'L', m: 'act, collection of' },
+  { s: 'ance', o: 'L', m: 'state, quality of' },
+  { s: 'ence', o: 'L', m: 'state, quality of' },
+  { s: 'ancy', o: 'L', m: 'state, quality of' },
+  { s: 'ency', o: 'L', m: 'state, quality of' },
+  { s: 'ary', o: 'L', m: 'relating to, place of' },
+  { s: 'ery', o: 'L', m: 'place of, collection' },
+  { s: 'ette', o: 'L', m: 'small, female' },
+  { s: 'let', o: 'E', m: 'small' },
+  { s: 'ling', o: 'E', m: 'small, young' },
+  { s: 'kin', o: 'E', m: 'small' },
+  { s: 'esque', o: 'L', m: 'in the style of, like' },
+  { s: 'some', o: 'E', m: 'characterized by, tending to' },
+  { s: 'wise', o: 'E', m: 'in the manner of' },
+  { s: 'fold', o: 'E', m: 'multiplied by' },
+  { s: 'th', o: 'E', m: 'forms nouns of state' },
+  { s: 'cide', o: 'L', m: 'killing of' },
+  { s: 'vore', o: 'L', m: 'eater of' },
+  { s: 'iana', o: 'L', m: 'collection of works' }
+];
+
+/* ---------------- root database ----------------
+ * r: canonical root, o: origin code, m: meaning,
+ * v: spelling variants, f: word-family examples.
+ */
+var RL_ROOTS = [
+  { r: 'port', o: 'L', m: 'carry, bear', v: ['port'], f: ['transport', 'portable', 'import', 'export', 'deport', 'report', 'support', 'porter'] },
+  { r: 'dict', o: 'L', m: 'say, speak', v: ['dict', 'dic', 'diction'], f: ['dictate', 'predict', 'dictionary', 'verdict', 'contradict', 'edict', 'dictation', 'benediction'] },
+  { r: 'scrib', o: 'L', m: 'write', v: ['scrib', 'script', 'scri'], f: ['describe', 'manuscript', 'prescribe', 'script', 'inscription', 'scribble', 'ascribe', 'transcript'] },
+  { r: 'duc', o: 'L', m: 'lead', v: ['duc', 'duct'], f: ['produce', 'conductor', 'induce', 'educate', 'reduce', 'abduct', 'duke', 'seduce'] },
+  { r: 'mit', o: 'L', m: 'send', v: ['mit', 'miss'], f: ['transmit', 'mission', 'dismiss', 'submit', 'emit', 'remit', 'missile', 'admit'] },
+  { r: 'ject', o: 'L', m: 'throw', v: ['ject'], f: ['reject', 'project', 'eject', 'inject', 'subject', 'object', 'trajectory', 'deject'] },
+  { r: 'tract', o: 'L', m: 'pull, drag', v: ['tract'], f: ['attract', 'extract', 'tractor', 'contract', 'detract', 'retract', 'traction', 'distract'] },
+  { r: 'vers', o: 'L', m: 'turn', v: ['vers', 'vert'], f: ['reverse', 'convert', 'invert', 'divert', 'verse', 'versatile', 'avert', 'controversy'] },
+  { r: 'form', o: 'L', m: 'shape', v: ['form'], f: ['format', 'transform', 'inform', 'conform', 'reform', 'formula', 'formal', 'deform'] },
+  { r: 'struct', o: 'L', m: 'build', v: ['struct', 'stru'], f: ['construct', 'instruct', 'structure', 'destroy', 'obstruct', 'infrastructure', 'restructure'] },
+  { r: 'spect', o: 'L', m: 'look', v: ['spect', 'spec'], f: ['inspect', 'respect', 'spectator', 'prospect', 'suspect', 'spectacular', 'introspect', 'aspect'] },
+  { r: 'vis', o: 'L', m: 'see', v: ['vis', 'vid', 'view'], f: ['vision', 'video', 'evidence', 'visit', 'visual', 'supervise', 'invisible', 'preview'] },
+  { r: 'aud', o: 'L', m: 'hear', v: ['aud', 'audi'], f: ['audio', 'audience', 'audible', 'audit', 'auditorium', 'inaudible', 'audition'] },
+  { r: 'voc', o: 'L', m: 'voice, call', v: ['voc', 'vox', 'vok'], f: ['vocal', 'invoke', 'advocate', 'vocabulary', 'provoke', 'equivocate', 'vociferous'] },
+  { r: 'fac', o: 'L', m: 'make, do', v: ['fac', 'fact', 'fect', 'fic', 'act'], f: ['factory', 'effect', 'perfect', 'affect', 'defect', 'manufacture', 'benefactor', 'actor'] },
+  { r: 'fer', o: 'L', m: 'bear, carry', v: ['fer'], f: ['transfer', 'infer', 'confer', 'prefer', 'refer', 'fertile', 'conifer', 'defer'] },
+  { r: 'ced', o: 'L', m: 'go, yield', v: ['ced', 'cess', 'cede'], f: ['proceed', 'recede', 'process', 'exceed', 'success', 'cede', 'secede', 'predecessor'] },
+  { r: 'grad', o: 'L', m: 'step, go', v: ['grad', 'gress', 'gred'], f: ['progress', 'graduate', 'degrade', 'gradient', 'aggressive', 'egress', 'congress'] },
+  { r: 'cur', o: 'L', m: 'run', v: ['cur', 'curs', 'cour', 'cours'], f: ['current', 'occur', 'cursive', 'cursor', 'incur', 'excursion', 'recur', 'course'] },
+  { r: 'rupt', o: 'L', m: 'break', v: ['rupt'], f: ['disrupt', 'erupt', 'corrupt', 'rupture', 'abrupt', 'interrupt', 'bankrupt'] },
+  { r: 'fract', o: 'L', m: 'break', v: ['fract', 'frang', 'frag'], f: ['fraction', 'fragile', 'fracture', 'fragment', 'refract', 'infringe'] },
+  { r: 'press', o: 'L', m: 'press', v: ['press', 'prim'], f: ['express', 'compress', 'impress', 'depress', 'pressure', 'repress', 'imprint'] },
+  { r: 'clud', o: 'L', m: 'shut, close', v: ['clud', 'clus', 'clos'], f: ['include', 'conclude', 'exclude', 'recluse', 'preclude', 'seclusion', 'close'] },
+  { r: 'sist', o: 'L', m: 'stand', v: ['sist'], f: ['insist', 'consist', 'assist', 'resist', 'persist', 'desist', 'subsist'] },
+  { r: 'sta', o: 'L', m: 'stand', v: ['sta', 'stat', 'stit'], f: ['station', 'status', 'stable', 'statue', 'establish', 'stance', 'static', 'institute'] },
+  { r: 'ten', o: 'L', m: 'hold', v: ['ten', 'tain', 'tin'], f: ['contain', 'maintain', 'tenacious', 'tenure', 'tenant', 'retain', 'obtain', 'detain'] },
+  { r: 'pend', o: 'L', m: 'hang, weigh', v: ['pend', 'pens'], f: ['pendant', 'pending', 'pension', 'suspend', 'depend', 'ponder', 'compensate', 'appendix'] },
+  { r: 'pos', o: 'L', m: 'place, put', v: ['pos', 'pon', 'posit'], f: ['position', 'postpone', 'component', 'oppose', 'impose', 'deposit', 'expose', 'posture'] },
+  { r: 'loc', o: 'L', m: 'place', v: ['loc'], f: ['local', 'locate', 'relocate', 'location', 'allocate', 'dislocate', 'locus'] },
+  { r: 'mov', o: 'L', m: 'move', v: ['mov', 'mot', 'mob'], f: ['motion', 'motive', 'mobile', 'remove', 'promote', 'emotion', 'commotion', 'demote'] },
+  { r: 'junct', o: 'L', m: 'join', v: ['junct', 'join'], f: ['junction', 'conjunction', 'adjunct', 'juncture', 'enjoin', 'join', 'rejoin'] },
+  { r: 'lig', o: 'L', m: 'bind, tie', v: ['lig'], f: ['religion', 'ligament', 'oblige', 'liable', 'ally', 'league', 'obligation'] },
+  { r: 'fid', o: 'L', m: 'faith, trust', v: ['fid'], f: ['confident', 'fidelity', 'confide', 'infidel', 'fiduciary', 'affidavit', 'perfidy'] },
+  { r: 'cred', o: 'L', m: 'believe', v: ['cred'], f: ['credit', 'credible', 'incredible', 'credential', 'creed', 'accredit', 'credence', 'incredulous'] },
+  { r: 'spir', o: 'L', m: 'breathe', v: ['spir'], f: ['inspire', 'spirit', 'respire', 'conspire', 'expire', 'perspire', 'aspire', 'spiritual'] },
+  { r: 'mort', o: 'L', m: 'death', v: ['mort'], f: ['mortal', 'immortal', 'mortuary', 'mortgage', 'mortify'] },
+  { r: 'vit', o: 'L', m: 'life', v: ['vit', 'viv'], f: ['vital', 'vivid', 'survive', 'revive', 'vivacious', 'vitality', 'vitamin', 'convivial'] },
+  { r: 'corp', o: 'L', m: 'body', v: ['corp'], f: ['corporate', 'corpse', 'incorporate', 'corpus', 'corporal', 'corps'] },
+  { r: 'manu', o: 'L', m: 'hand', v: ['manu', 'man'], f: ['manual', 'manufacture', 'manuscript', 'maneuver', 'manicure', 'emancipate', 'manage'] },
+  { r: 'ped', o: 'L', m: 'foot', v: ['ped'], f: ['pedal', 'pedestrian', 'impede', 'expedite', 'biped', 'centipede', 'moped'] },
+  { r: 'capit', o: 'L', m: 'head', v: ['capit', 'cap'], f: ['capital', 'captain', 'decapitate', 'recapitulate', 'capitulate'] },
+  { r: 'dent', o: 'L', m: 'tooth', v: ['dent'], f: ['dentist', 'dental', 'denture', 'indent', 'trident', 'dentifrice', 'indenture'] },
+  { r: 'sens', o: 'L', m: 'feel', v: ['sens', 'sent'], f: ['sense', 'sensitive', 'consent', 'resent', 'sentiment', 'assent', 'sentient', 'dissent'] },
+  { r: 'mem', o: 'L', m: 'remember', v: ['mem'], f: ['memory', 'memoir', 'commemorate', 'memo', 'memento', 'remember', 'memorial'] },
+  { r: 'cogn', o: 'L', m: 'know', v: ['cogn', 'nosc', 'not'], f: ['cognition', 'recognize', 'incognito', 'cognizant', 'notice', 'notion', 'notify', 'note'] },
+  { r: 'sci', o: 'L', m: 'know', v: ['sci'], f: ['science', 'conscious', 'conscience', 'omniscient', 'prescient', 'unconscious'] },
+  { r: 'leg', o: 'L', m: 'law', v: ['leg', 'lex'], f: ['legal', 'legislate', 'legitimate', 'legacy', 'delegate', 'legislature', 'privilege'] },
+  { r: 'jur', o: 'L', m: 'law, judge', v: ['jur', 'jud'], f: ['jury', 'justice', 'judge', 'perjury', 'adjudicate', 'prejudice', 'juror', 'injury'] },
+  { r: 'greg', o: 'L', m: 'flock, herd', v: ['greg'], f: ['aggregate', 'congregate', 'segregate', 'gregarious', 'egregious', 'congregation'] },
+  { r: 'pop', o: 'L', m: 'people', v: ['pop', 'publ'], f: ['popular', 'public', 'population', 'populace', 'publish', 'republic', 'popularity'] },
+  { r: 'civ', o: 'L', m: 'citizen', v: ['civ'], f: ['civil', 'civic', 'civilization', 'civility', 'civilian', 'civilize'] },
+  { r: 'urb', o: 'L', m: 'city', v: ['urb'], f: ['urban', 'suburb', 'urbanize', 'suburban', 'urbane'] },
+  { r: 'dom', o: 'L', m: 'house, master', v: ['dom'], f: ['domain', 'domestic', 'domicile', 'dominate', 'predominant', 'majordomo'] },
+  { r: 'terr', o: 'L', m: 'land, earth', v: ['terr'], f: ['territory', 'terrain', 'terrestrial', 'terrace', 'subterranean', 'terrarium'] },
+  { r: 'mar', o: 'L', m: 'sea', v: ['mar'], f: ['marine', 'mariner', 'maritime', 'submarine', 'marina', 'ultramarine'] },
+  { r: 'aqu', o: 'L', m: 'water', v: ['aqu'], f: ['aquarium', 'aquatic', 'aqueduct', 'aqueous', 'aquifer', 'aquanaut'] },
+  { r: 'ign', o: 'L', m: 'fire', v: ['ign'], f: ['ignite', 'ignition', 'igneous', 'reignite'] },
+  { r: 'luc', o: 'L', m: 'light', v: ['luc', 'lum'], f: ['lucid', 'luminous', 'illuminate', 'elucidate', 'luminary', 'translucent', 'pellucid'] },
+  { r: 'sol', o: 'L', m: 'sun', v: ['sol'], f: ['solar', 'solstice', 'parasol', 'solarium', 'insolate'] },
+  { r: 'lun', o: 'L', m: 'moon', v: ['lun'], f: ['lunar', 'lunatic', 'lunacy', 'sublunar'] },
+  { r: 'noct', o: 'L', m: 'night', v: ['noct', 'nox'], f: ['nocturnal', 'equinox', 'nocturne'] },
+  { r: 'temp', o: 'L', m: 'time', v: ['temp', 'tempor'], f: ['temporary', 'temporal', 'contemporary', 'tempo', 'extempore', 'tempest'] },
+  { r: 'ann', o: 'L', m: 'year', v: ['ann', 'enn'], f: ['annual', 'biennial', 'perennial', 'anniversary', 'annuity', 'millennium'] },
+  { r: 'nov', o: 'L', m: 'new', v: ['nov'], f: ['novel', 'innovation', 'renovate', 'novice', 'nova', 'novelty', 'innovate'] },
+  { r: 'prim', o: 'L', m: 'first', v: ['prim'], f: ['primary', 'primitive', 'prime', 'primate', 'primordial', 'primer'] },
+  { r: 'ultim', o: 'L', m: 'last, final', v: ['ultim'], f: ['ultimate', 'ultimatum', 'penultimate'] },
+  { r: 'medi', o: 'L', m: 'middle', v: ['medi'], f: ['medium', 'mediate', 'medieval', 'median', 'mediocre', 'intermediary'] },
+  { r: 'min', o: 'L', m: 'small, less', v: ['min'], f: ['minor', 'minus', 'minimal', 'minute', 'diminish', 'minority'] },
+  { r: 'magn', o: 'L', m: 'great', v: ['magn'], f: ['magnify', 'magnificent', 'magnitude', 'magnate', 'magnanimous'] },
+  { r: 'bon', o: 'L', m: 'good', v: ['bon', 'ben'], f: ['bonus', 'benefit', 'benevolent', 'benign', 'benediction', 'bonanza'] },
+  { r: 'mal', o: 'L', m: 'bad, evil', v: ['mal'], f: ['malice', 'malfunction', 'malevolent', 'malignant', 'malpractice', 'malady'] },
+  { r: 'fort', o: 'L', m: 'strong', v: ['fort'], f: ['fortify', 'fortress', 'effort', 'fortitude', 'comfort', 'forte'] },
+  { r: 'val', o: 'L', m: 'worth, strong', v: ['val'], f: ['value', 'valid', 'evaluate', 'valor', 'valiant', 'devalue', 'valence'] },
+  { r: 'san', o: 'L', m: 'healthy', v: ['san'], f: ['sanitary', 'sane', 'sanatorium', 'sanitize', 'insanity', 'sanitation'] },
+  { r: 'pac', o: 'L', m: 'peace', v: ['pac'], f: ['pacify', 'pacifist', 'pact', 'pacific', 'appease'] },
+  { r: 'bell', o: 'L', m: 'war', v: ['bell'], f: ['bellicose', 'antebellum', 'rebellion', 'rebel', 'belligerent'] },
+  { r: 'serv', o: 'L', m: 'serve, keep', v: ['serv'], f: ['service', 'servant', 'preserve', 'observe', 'deserve', 'conserve', 'servitude'] },
+  { r: 'liber', o: 'L', m: 'free', v: ['liber', 'libr'], f: ['liberty', 'liberal', 'liberate', 'deliver', 'liberation', 'libertine'] },
+  { r: 'reg', o: 'L', m: 'rule, straight', v: ['reg', 'rect'], f: ['regal', 'rectify', 'correct', 'regulate', 'regime', 'regiment', 'regular'] },
+  { r: 'milit', o: 'L', m: 'soldier', v: ['milit'], f: ['military', 'militant', 'militia', 'demilitarize'] },
+  { r: 'nav', o: 'L', m: 'ship', v: ['nav'], f: ['navy', 'navigate', 'naval', 'navigation', 'circumnavigate'] },
+  { r: 'via', o: 'L', m: 'way, road', v: ['via'], f: ['viaduct', 'trivial', 'deviate', 'via', 'obviate', 'impervious'] },
+  { r: 'gen', o: 'M', m: 'birth, race, kind (Latin genus / Greek genos, cognates)', v: ['gen'], f: ['generate', 'genesis', 'genealogy', 'gender', 'genus', 'degenerate', 'gene', 'genetic', 'hydrogen', 'pathogen'] },
+  { r: 'nat', o: 'L', m: 'born', v: ['nat'], f: ['native', 'nature', 'innate', 'natal', 'nativity', 'nation', 'nascent'] },
+  { r: 'mater', o: 'L', m: 'mother', v: ['mater', 'matr'], f: ['maternal', 'matrimony', 'maternity', 'matriarch', 'matricide', 'alma mater'] },
+  { r: 'pater', o: 'L', m: 'father', v: ['pater', 'patr'], f: ['paternal', 'patriot', 'patron', 'patriarch', 'expatriate', 'patrician'] },
+  { r: 'frater', o: 'L', m: 'brother', v: ['frater', 'fratr'], f: ['fraternal', 'fraternity', 'fraternize', 'fratricide'] },
+  { r: 'soror', o: 'L', m: 'sister', v: ['soror'], f: ['sorority', 'sororal'] },
+  { r: 'am', o: 'L', m: 'love', v: ['am', 'amor'], f: ['amorous', 'amiable', 'enamor', 'amity', 'paramour', 'amateur'] },
+  { r: 'lud', o: 'L', m: 'play, game', v: ['lud', 'lus'], f: ['ludicrous', 'elude', 'prelude', 'delude', 'collude', 'allude', 'interlude', 'illusion'] },
+  { r: 'cant', o: 'L', m: 'sing', v: ['cant', 'chant'], f: ['chant', 'recant', 'incantation', 'cantata', 'descant', 'enchant'] },
+  { r: 'son', o: 'L', m: 'sound', v: ['son'], f: ['sonic', 'resonance', 'unison', 'consonant', 'dissonant', 'assonance', 'sonorous'] },
+  { r: 'lat', o: 'L', m: 'carry, bear', v: ['lat'], f: ['translate', 'relate', 'collate', 'elate', 'dilate', 'superlative'] },
+  { r: 'ambul', o: 'L', m: 'walk', v: ['ambul', 'ambl'], f: ['amble', 'ambulance', 'ambulatory', 'perambulate', 'somnambulist', 'preamble'] },
+  { r: 'flu', o: 'L', m: 'flow', v: ['flu', 'flux', 'fluct'], f: ['fluid', 'fluent', 'influence', 'flux', 'affluent', 'confluence', 'fluctuate', 'effluent'] },
+  { r: 'fus', o: 'L', m: 'pour', v: ['fus'], f: ['confuse', 'diffuse', 'fusion', 'effuse', 'transfuse', 'profuse', 'infusion'] },
+  { r: 'vor', o: 'L', m: 'eat', v: ['vor'], f: ['devour', 'voracious', 'carnivore', 'herbivore', 'omnivore', 'voracity'] },
+  { r: 'dorm', o: 'L', m: 'sleep', v: ['dorm'], f: ['dormant', 'dormitory', 'dormancy'] },
+  { r: 'somn', o: 'L', m: 'sleep', v: ['somn'], f: ['insomnia', 'somnambulist', 'somnolent', 'somnolence'] },
+  { r: 'err', o: 'L', m: 'wander', v: ['err'], f: ['error', 'erratic', 'errand', 'aberration', 'erratum'] },
+  { r: 'fall', o: 'L', m: 'deceive', v: ['fall', 'fals'], f: ['fallacy', 'false', 'falsify', 'fallible', 'infallible'] },
+  { r: 'ver', o: 'L', m: 'true', v: ['ver'], f: ['verify', 'verdict', 'veracity', 'veritable', 'aver', 'verisimilitude'] },
+  { r: 'put', o: 'L', m: 'think', v: ['put'], f: ['compute', 'dispute', 'computer', 'impute', 'repute', 'putative'] },
+  { r: 'tang', o: 'L', m: 'touch', v: ['tang', 'tact', 'ting'], f: ['tangible', 'contact', 'intact', 'tactile', 'tact', 'tangent', 'contagious'] },
+  { r: 'clam', o: 'L', m: 'cry out', v: ['clam', 'claim'], f: ['clamor', 'exclaim', 'proclaim', 'acclaim', 'reclaim', 'declaim'] },
+  { r: 'loqu', o: 'L', m: 'speak', v: ['loqu', 'locut'], f: ['loquacious', 'eloquent', 'colloquial', 'soliloquy', 'elocution', 'circumlocution'] },
+  { r: 'rid', o: 'L', m: 'laugh', v: ['rid', 'ris'], f: ['ridiculous', 'deride', 'risible', 'derision'] },
+  { r: 'plac', o: 'L', m: 'please', v: ['plac'], f: ['placate', 'placebo', 'placid', 'complacent', 'implacable'] },
+  { r: 'grat', o: 'L', m: 'pleasing, thankful', v: ['grat'], f: ['grateful', 'gratify', 'gratitude', 'congratulate', 'ingrate', 'gratis'] },
+  { r: 'acr', o: 'L', m: 'sharp, bitter', v: ['acr'], f: ['acrid', 'acrimony', 'acrobat', 'acumen', 'exacerbate', 'acerbic'] },
+  { r: 'brev', o: 'L', m: 'short', v: ['brev'], f: ['brief', 'brevity', 'abbreviate', 'breviary'] },
+  { r: 'alt', o: 'L', m: 'high', v: ['alt'], f: ['altitude', 'altar', 'altimeter', 'exalt', 'alto'] },
+  { r: 'plen', o: 'L', m: 'full', v: ['plen', 'plet'], f: ['plenty', 'plenary', 'plenitude', 'plentiful', 'replenish', 'complete'] },
+  { r: 'vac', o: 'L', m: 'empty', v: ['vac'], f: ['vacant', 'vacate', 'vacuum', 'evacuate', 'vacuous', 'vacation'] },
+  { r: 'omn', o: 'L', m: 'all', v: ['omn'], f: ['omniscient', 'omnipotent', 'omnivore', 'omnipresent', 'omnibus'] },
+  { r: 'equ', o: 'L', m: 'equal', v: ['equ'], f: ['equal', 'equity', 'equate', 'equivalent', 'equilibrium', 'equivocal'] },
+  { r: 'par', o: 'L', m: 'equal', v: ['par'], f: ['parity', 'pair', 'compare', 'disparage', 'peer', 'impair'] },
+  { r: 'simil', o: 'L', m: 'like, similar', v: ['simil', 'simul'], f: ['similar', 'simile', 'simulate', 'assimilate', 'dissimilar', 'facsimile'] },
+  { r: 'alter', o: 'L', m: 'other', v: ['alter'], f: ['alternate', 'alternative', 'altercation', 'altruism', 'adulterate'] },
+  { r: 'ali', o: 'L', m: 'other', v: ['ali'], f: ['alias', 'alien', 'alienate', 'alibi', 'inalienable'] },
+  { r: 'anim', o: 'L', m: 'mind, spirit', v: ['anim'], f: ['animal', 'animate', 'animosity', 'unanimous', 'magnanimous', 'reanimate'] },
+  { r: 'ment', o: 'L', m: 'mind', v: ['ment'], f: ['mental', 'mention', 'demented', 'mentation'] },
+  { r: 'cord', o: 'L', m: 'heart', v: ['cord'], f: ['cordial', 'accord', 'concord', 'discord', 'courage', 'encourage'] },
+  { r: 'ocul', o: 'L', m: 'eye', v: ['ocul'], f: ['ocular', 'oculist', 'binocular', 'monocular', 'inoculate'] },
+  { r: 'aur', o: 'L', m: 'ear', v: ['aur'], f: ['aural', 'auricular', 'auricle'] },
+  { r: 'or', o: 'L', m: 'mouth', v: ['or'], f: ['oral', 'orifice', 'oracle', 'adore', 'inexorable'] },
+  { r: 'lingu', o: 'L', m: 'tongue, language', v: ['lingu', 'ling'], f: ['linguist', 'bilingual', 'language', 'lingua franca'] },
+  { r: 'sanguin', o: 'L', m: 'blood', v: ['sanguin', 'sangu'], f: ['sanguine', 'sanguinary', 'consanguineous'] },
+  { r: 'oss', o: 'L', m: 'bone', v: ['oss'], f: ['ossify', 'ossuary', 'osseous'] },
+  { r: 'ven', o: 'L', m: 'come', v: ['ven', 'vent'], f: ['convene', 'intervene', 'invent', 'venture', 'venue', 'advent', 'prevent', 'event'] },
+  { r: 'sequ', o: 'L', m: 'follow', v: ['sequ', 'secut'], f: ['sequence', 'sequel', 'consequence', 'second', 'prosecute', 'subsequent', 'obsequious'] },
+  { r: 'pet', o: 'L', m: 'seek, strive', v: ['pet'], f: ['petition', 'compete', 'appetite', 'impetus', 'perpetuate', 'centripetal'] },
+  { r: 'quer', o: 'L', m: 'seek, ask', v: ['quer', 'quis', 'quest'], f: ['query', 'quest', 'inquire', 'request', 'inquest', 'conquest', 'require', 'exquisite'] },
+  { r: 'rog', o: 'L', m: 'ask', v: ['rog'], f: ['interrogate', 'derogatory', 'prerogative', 'abrogate', 'arrogant', 'surrogate'] },
+  { r: 'test', o: 'L', m: 'witness', v: ['test'], f: ['testify', 'testimony', 'attest', 'testament', 'protest', 'contest'] },
+  { r: 'sign', o: 'L', m: 'mark, sign', v: ['sign'], f: ['signal', 'signify', 'assign', 'design', 'resign', 'insignia', 'signature'] },
+  { r: 'doc', o: 'L', m: 'teach', v: ['doc', 'doct'], f: ['docile', 'doctor', 'doctrine', 'doctoral', 'indoctrinate'] },
+  { r: 'cult', o: 'L', m: 'till, worship', v: ['cult'], f: ['culture', 'cultivate', 'agriculture', 'horticulture', 'cult', 'acculturation'] },
+  { r: 'agr', o: 'L', m: 'field', v: ['agr', 'agri'], f: ['agriculture', 'agronomy', 'agrarian', 'agribusiness'] },
+  { r: 'mont', o: 'L', m: 'mountain', v: ['mont'], f: ['mountain', 'montane', 'paramount', 'amount', 'surmount'] },
+  { r: 'insul', o: 'L', m: 'island', v: ['insul'], f: ['insular', 'insulation', 'insulate', 'peninsula', 'isolate'] },
+  { r: 'sacr', o: 'L', m: 'sacred', v: ['sacr', 'sanct'], f: ['sacred', 'sacrifice', 'sanctuary', 'sacrosanct', 'sanctimonious', 'consecrate'] },
+  { r: 'vol', o: 'L', m: 'wish, will', v: ['vol', 'volunt'], f: ['voluntary', 'volunteer', 'benevolent', 'malevolent', 'volition'] },
+  { r: 'graph', o: 'G', m: 'write, draw', v: ['graph', 'gram'], f: ['graphic', 'telegram', 'grammar', 'photograph', 'biography', 'autograph', 'paragraph', 'epigram'] },
+  { r: 'phon', o: 'G', m: 'sound', v: ['phon'], f: ['telephone', 'phonics', 'symphony', 'phonograph', 'euphony', 'cacophony', 'microphone', 'xylophone'] },
+  { r: 'scope', o: 'G', m: 'see, look', v: ['scope', 'scop'], f: ['telescope', 'microscope', 'periscope', 'stethoscope', 'kaleidoscope', 'horoscope'] },
+  { r: 'log', o: 'G', m: 'word, reason', v: ['log', 'logo'], f: ['dialogue', 'logic', 'catalog', 'analog', 'prologue', 'epilogue', 'apology'] },
+  { r: 'soph', o: 'G', m: 'wise', v: ['soph'], f: ['philosophy', 'sophomore', 'sophisticated', 'sophistry', 'theosophy'] },
+  { r: 'dem', o: 'G', m: 'people', v: ['dem', 'demo'], f: ['democracy', 'demographic', 'pandemic', 'demagogue', 'endemic'] },
+  { r: 'crat', o: 'G', m: 'rule', v: ['crat', 'cracy'], f: ['democrat', 'autocracy', 'bureaucracy', 'aristocrat', 'plutocracy', 'theocracy', 'technocrat'] },
+  { r: 'arch', o: 'G', m: 'chief, rule', v: ['arch'], f: ['monarch', 'anarchy', 'architect', 'archbishop', 'archetype', 'hierarchy', 'archive'] },
+  { r: 'theo', o: 'G', m: 'god', v: ['the', 'theo'], f: ['theology', 'atheist', 'theocracy', 'apotheosis', 'pantheon', 'theist', 'atheism'] },
+  { r: 'anthropo', o: 'G', m: 'human', v: ['anthrop'], f: ['anthropology', 'misanthrope', 'philanthropy', 'anthropomorphic', 'misanthropic'] },
+  { r: 'phil', o: 'G', m: 'love', v: ['phil'], f: ['philosophy', 'philanthropy', 'philharmonic', 'bibliophile', 'anglophile', 'philately'] },
+  { r: 'mis', o: 'G', m: 'hate', v: ['mis'], f: ['misanthrope', 'misogyny', 'misandry', 'misanthropy'] },
+  { r: 'path', o: 'G', m: 'feeling, suffering', v: ['path'], f: ['sympathy', 'empathy', 'pathetic', 'apathy', 'pathology', 'antipathy', 'telepathy'] },
+  { r: 'psych', o: 'G', m: 'mind, soul', v: ['psych'], f: ['psychology', 'psychic', 'psychosis', 'psychedelic', 'psychopath', 'psychosomatic'] },
+  { r: 'neur', o: 'G', m: 'nerve', v: ['neur'], f: ['neurology', 'neuron', 'neural', 'neurosis', 'neurosurgeon', 'neuropathy'] },
+  { r: 'cardi', o: 'G', m: 'heart', v: ['cardi'], f: ['cardiac', 'cardiology', 'cardiogram', 'tachycardia', 'myocardium'] },
+  { r: 'hem', o: 'G', m: 'blood', v: ['hem', 'hemat', 'haem'], f: ['hemoglobin', 'hemorrhage', 'hematology', 'anemia', 'hemophilia'] },
+  { r: 'derm', o: 'G', m: 'skin', v: ['derm'], f: ['dermatology', 'epidermis', 'dermatitis', 'hypodermic', 'pachyderm', 'taxidermy'] },
+  { r: 'oste', o: 'G', m: 'bone', v: ['oste'], f: ['osteoporosis', 'osteopath', 'osteoarthritis', 'osteology'] },
+  { r: 'odont', o: 'G', m: 'tooth', v: ['odont'], f: ['orthodontist', 'periodontal', 'odontoid'] },
+  { r: 'ophthalm', o: 'G', m: 'eye', v: ['ophthalm'], f: ['ophthalmology', 'ophthalmic'] },
+  { r: 'ot', o: 'G', m: 'ear', v: ['ot'], f: ['otitis', 'otology', 'otoscope', 'otolith'] },
+  { r: 'rhin', o: 'G', m: 'nose', v: ['rhin'], f: ['rhinoceros', 'rhinoplasty', 'rhinitis'] },
+  { r: 'gloss', o: 'G', m: 'tongue', v: ['gloss', 'glot'], f: ['glossary', 'polyglot', 'glossitis', 'epiglottis'] },
+  { r: 'cephal', o: 'G', m: 'head', v: ['cephal'], f: ['encephalitis', 'cephalopod', 'hydrocephalus'] },
+  { r: 'pod', o: 'G', m: 'foot', v: ['pod'], f: ['podium', 'tripod', 'podiatry', 'pseudopod', 'cephalopod'] },
+  { r: 'dactyl', o: 'G', m: 'finger, toe', v: ['dactyl'], f: ['pterodactyl', 'polydactyl', 'dactylic'] },
+  { r: 'onym', o: 'G', m: 'name', v: ['onym', 'nym'], f: ['synonym', 'antonym', 'pseudonym', 'homonym', 'eponym', 'acronym', 'toponym'] },
+  { r: 'morph', o: 'G', m: 'form, shape', v: ['morph'], f: ['metamorphosis', 'amorphous', 'morphology', 'anthropomorphic', 'isomorphic', 'morpheme'] },
+  { r: 'chron', o: 'G', m: 'time', v: ['chron'], f: ['chronic', 'chronicle', 'synchronize', 'anachronism', 'chronological', 'chronometer'] },
+  { r: 'geo', o: 'G', m: 'earth', v: ['ge', 'geo'], f: ['geography', 'geology', 'geometry', 'geocentric', 'apogee', 'perigee'] },
+  { r: 'bio', o: 'G', m: 'life', v: ['bio', 'bi'], f: ['biology', 'biography', 'antibiotic', 'symbiosis', 'biopsy'] },
+  { r: 'zo', o: 'G', m: 'animal', v: ['zo'], f: ['zoo', 'zoology', 'zodiac', 'protozoa', 'metazoan'] },
+  { r: 'therm', o: 'G', m: 'heat', v: ['therm'], f: ['thermal', 'thermometer', 'thermostat', 'hypothermia', 'endothermic'] },
+  { r: 'cryo', o: 'G', m: 'cold', v: ['cryo'], f: ['cryogenics', 'cryotherapy', 'cryosphere'] },
+  { r: 'hydr', o: 'G', m: 'water', v: ['hydr', 'hydro'], f: ['hydraulic', 'dehydrate', 'hydroelectric', 'hydrogen', 'hydrangea', 'hydrophobia'] },
+  { r: 'pyro', o: 'G', m: 'fire', v: ['pyro', 'pyr'], f: ['pyromania', 'pyrotechnics', 'pyre', 'pyrometer'] },
+  { r: 'photo', o: 'G', m: 'light', v: ['photo', 'phot'], f: ['photograph', 'photosynthesis', 'photon', 'photogenic', 'telephoto'] },
+  { r: 'helio', o: 'G', m: 'sun', v: ['helio', 'heli'], f: ['heliocentric', 'helium', 'heliotrope'] },
+  { r: 'astr', o: 'G', m: 'star', v: ['astr', 'aster'], f: ['astronomy', 'astronaut', 'asterisk', 'asteroid', 'disaster', 'astral'] },
+  { r: 'cosmo', o: 'G', m: 'universe, order', v: ['cosm', 'cosmo'], f: ['cosmos', 'cosmopolitan', 'cosmetic', 'cosmogony', 'microcosm'] },
+  { r: 'atm', o: 'G', m: 'vapor', v: ['atm', 'atmo'], f: ['atmosphere', 'atmospheric'] },
+  { r: 'bar', o: 'G', m: 'weight, pressure', v: ['bar'], f: ['barometer', 'baritone', 'isobar', 'barbell'] },
+  { r: 'dynam', o: 'G', m: 'power', v: ['dynam'], f: ['dynamic', 'dynamite', 'dynamo', 'aerodynamics'] },
+  { r: 'erg', o: 'G', m: 'work', v: ['erg'], f: ['energy', 'ergonomic', 'synergy', 'allergic', 'lethargy', 'metallurgy'] },
+  { r: 'kine', o: 'G', m: 'motion', v: ['kine', 'cine'], f: ['kinetic', 'cinema', 'kinesis', 'telekinesis', 'kinesthetic'] },
+  { r: 'meter', o: 'G', m: 'measure', v: ['meter', 'metr'], f: ['meter', 'symmetry', 'thermometer', 'parameter', 'diameter', 'odometer'] },
+  { r: 'lith', o: 'G', m: 'stone', v: ['lith'], f: ['monolith', 'lithium', 'lithograph', 'neolithic', 'megalith'] },
+  { r: 'nom', o: 'G', m: 'law, custom', v: ['nom'], f: ['astronomy', 'economy', 'autonomy', 'gastronomy', 'agronomy', 'taxonomy'] },
+  { r: 'taxis', o: 'G', m: 'arrangement', v: ['taxi', 'tax'], f: ['syntax', 'taxonomy', 'ataxia', 'chemotaxis'] },
+  { r: 'thesis', o: 'G', m: 'place, put', v: ['thes', 'thet', 'thesis'], f: ['hypothesis', 'synthesis', 'thesis', 'antithesis', 'prosthesis', 'epithet'] },
+  { r: 'tom', o: 'G', m: 'cut', v: ['tom'], f: ['anatomy', 'atom', 'tonsillectomy', 'dichotomy', 'epitome', 'appendectomy'] },
+  { r: 'lys', o: 'G', m: 'loosen, dissolve', v: ['lys', 'lyt'], f: ['analysis', 'paralysis', 'dialysis', 'lysosome', 'catalysis', 'electrolyte', 'analytic'] },
+  { r: 'cryp', o: 'G', m: 'hidden', v: ['crypt', 'cryp'], f: ['cryptic', 'encrypt', 'crypt', 'apocryphal', 'cryptogram'] },
+  { r: 'phan', o: 'G', m: 'show, appear', v: ['phan', 'phen', 'fant'], f: ['phantom', 'phenomenon', 'fantasy', 'epiphany', 'diaphanous', 'sycophant'] },
+  { r: 'dox', o: 'G', m: 'belief, praise', v: ['dox'], f: ['orthodox', 'paradox', 'doxology', 'heterodox'] },
+  { r: 'gnos', o: 'G', m: 'know', v: ['gnos'], f: ['diagnosis', 'prognosis', 'agnostic', 'gnostic', 'physiognomy'] },
+  { r: 'mnem', o: 'G', m: 'remember', v: ['mnem'], f: ['mnemonic', 'amnesia', 'anamnesis'] },
+  { r: 'techne', o: 'G', m: 'skill, art', v: ['techn', 'tech'], f: ['technique', 'technology', 'technical', 'tectonic'] },
+  { r: 'poie', o: 'G', m: 'make', v: ['poie', 'poe'], f: ['poetry', 'poet', 'onomatopoeia', 'pharmacopoeia'] },
+  { r: 'gyn', o: 'G', m: 'woman', v: ['gyn'], f: ['gynecology', 'misogyny', 'androgynous', 'polygyny'] },
+  { r: 'andr', o: 'G', m: 'man', v: ['andr'], f: ['androgynous', 'android', 'androgen', 'polyandry', 'philander'] },
+  { r: 'paed', o: 'G', m: 'child', v: ['paed', 'pedi', 'pedo', 'pedia'], f: ['pediatrician', 'encyclopedia', 'pedagogy', 'orthopedic'] },
+  { r: 'ger', o: 'G', m: 'old', v: ['ger', 'geront'], f: ['geriatrics', 'gerontology', 'gerontocracy'] },
+  { r: 'necro', o: 'G', m: 'dead', v: ['necro', 'necr'], f: ['necrosis', 'necropolis', 'necromancy'] },
+  { r: 'thanat', o: 'G', m: 'death', v: ['thanat'], f: ['euthanasia', 'thanatology'] },
+  { r: 'oneir', o: 'G', m: 'dream', v: ['oneir'], f: ['oneirology', 'oneiric'] },
+  { r: 'hypn', o: 'G', m: 'sleep', v: ['hypn'], f: ['hypnosis', 'hypnotic', 'hypnotherapy'] },
+  { r: 'narc', o: 'G', m: 'numbness', v: ['narc'], f: ['narcotic', 'narcosis', 'narcissism', 'narcolepsy'] },
+  { r: 'gam', o: 'G', m: 'marriage', v: ['gam'], f: ['monogamy', 'bigamy', 'polygamy', 'gamete'] },
+  { r: 'gon', o: 'G', m: 'angle', v: ['gon'], f: ['polygon', 'pentagon', 'hexagon', 'diagonal'] },
+  { r: 'cycl', o: 'G', m: 'circle, wheel', v: ['cycl', 'cyc'], f: ['cycle', 'bicycle', 'cyclone', 'encyclopedia', 'recycle', 'cyclic'] },
+  { r: 'spher', o: 'G', m: 'ball', v: ['spher'], f: ['sphere', 'hemisphere', 'spherical', 'atmosphere'] },
+  { r: 'lex', o: 'G', m: 'word, speech', v: ['lex'], f: ['lexicon', 'dyslexia', 'lexicography'] },
+  { r: 'sem', o: 'G', m: 'sign', v: ['sem'], f: ['semantic', 'semaphore', 'semiotic', 'polysemy'] },
+  { r: 'icon', o: 'G', m: 'image', v: ['icon'], f: ['icon', 'iconic', 'iconoclast', 'iconography'] },
+  { r: 'typ', o: 'G', m: 'type, strike', v: ['typ'], f: ['typical', 'prototype', 'typography', 'stereotype', 'archetype'] },
+  { r: 'bibl', o: 'G', m: 'book', v: ['bibl', 'bibli'], f: ['bible', 'bibliography', 'bibliophile', 'bibliomania'] },
+  { r: 'schol', o: 'G', m: 'school', v: ['schol', 'scho'], f: ['school', 'scholar', 'scholastic', 'scholarship'] },
+  { r: 'athl', o: 'G', m: 'contest', v: ['athl'], f: ['athlete', 'athletic', 'athletics', 'decathlon', 'triathlon'] },
+  { r: 'agon', o: 'G', m: 'contest, struggle', v: ['agon'], f: ['agony', 'antagonist', 'protagonist', 'agonize'] },
+  { r: 'troph', o: 'G', m: 'nourishment', v: ['troph'], f: ['trophy', 'atrophy', 'dystrophy', 'hypertrophy'] },
+  { r: 'phag', o: 'G', m: 'eat', v: ['phag'], f: ['esophagus', 'dysphagia', 'sarcophagus'] },
+  { r: 'chrom', o: 'G', m: 'color', v: ['chrom', 'chro'], f: ['chromatic', 'monochrome', 'chromosome', 'polychrome', 'chrome'] },
+  { r: 'leuk', o: 'G', m: 'white', v: ['leuk', 'leuc'], f: ['leukemia', 'leukocyte'] },
+  { r: 'melan', o: 'G', m: 'black', v: ['melan'], f: ['melanin', 'melanoma', 'melancholy'] },
+  { r: 'chlor', o: 'G', m: 'green', v: ['chlor'], f: ['chlorophyll', 'chlorine', 'chloroplast', 'chlorinate'] },
+  { r: 'xen', o: 'G', m: 'foreign, strange', v: ['xen', 'xeno'], f: ['xenophobia', 'xenon', 'xenolith'] },
+  { r: 'polis', o: 'G', m: 'city', v: ['polis', 'pol'], f: ['metropolis', 'police', 'politics', 'cosmopolitan', 'acropolis'] },
+  { r: 'ethn', o: 'G', m: 'nation, people', v: ['ethn'], f: ['ethnic', 'ethnography', 'ethnocentric', 'ethnicity'] },
+  { r: 'tyrann', o: 'G', m: 'absolute ruler', v: ['tyrann'], f: ['tyrant', 'tyranny', 'tyrannical'] },
+  { r: 'plut', o: 'G', m: 'wealth', v: ['plut'], f: ['plutocracy', 'plutocrat', 'plutonium'] },
+  { r: 'olig', o: 'G', m: 'few', v: ['olig'], f: ['oligarchy', 'oligarch', 'oligopoly'] },
+  { r: 'hier', o: 'G', m: 'sacred', v: ['hier'], f: ['hierarchy', 'hieroglyphics', 'hieratic'] },
+  { r: 'orth', o: 'G', m: 'straight, correct', v: ['orth'], f: ['orthodox', 'orthodontist', 'orthopedic', 'orthography'] },
+  { r: 'iatr', o: 'G', m: 'heal', v: ['iatr'], f: ['psychiatrist', 'pediatrician', 'podiatrist', 'geriatrician'] },
+  { r: 'hol', o: 'G', m: 'whole', v: ['hol'], f: ['holistic', 'hologram', 'holocaust', 'holography'] },
+  { r: 'arom', o: 'G', m: 'spice, fragrance', v: ['arom'], f: ['aroma', 'aromatic', 'aromatherapy'] },
+  { r: 'kin', o: 'E', m: 'family, kindred', v: ['kin'], f: ['kinship', 'kinsman', 'akin'] },
+  { r: 'craft', o: 'E', m: 'skill, trade', v: ['craft'], f: ['craft', 'craftsman', 'witchcraft', 'handicraft'] },
+  { r: 'wright', o: 'E', m: 'worker, maker', v: ['wright'], f: ['wheelwright', 'playwright', 'shipwright', 'millwright'] },
+  { r: 'smith', o: 'E', m: 'worker in metal', v: ['smith'], f: ['wordsmith', 'goldsmith', 'blacksmith', 'tunesmith'] },
+  { r: 'word', o: 'E', m: 'speech, utterance', v: ['word'], f: ['wordy', 'wordplay', 'wordsmith', 'password'] },
+  { r: 'mouth', o: 'E', m: 'mouth', v: ['mouth'], f: ['mouthful', 'mouthpiece'] },
+  { r: 'hand', o: 'E', m: 'hand', v: ['hand'], f: ['handy', 'handful', 'handshake', 'handmade'] },
+  { r: 'foot', o: 'E', m: 'foot', v: ['foot'], f: ['football', 'footprint', 'foothold', 'footnote'] },
+  { r: 'house', o: 'E', m: 'dwelling', v: ['house', 'hous'], f: ['household', 'housewife', 'houseboat'] },
+  { r: 'water', o: 'E', m: 'water', v: ['water'], f: ['waterfall', 'waterproof', 'watertight', 'watercolor'] },
+  { r: 'sun', o: 'E', m: 'sun', v: ['sun'], f: ['sunny', 'sunrise', 'sunset', 'sunburn'] },
+  { r: 'moon', o: 'E', m: 'moon', v: ['moon'], f: ['moonlight', 'moonshine', 'moonwalk'] },
+  { r: 'star', o: 'E', m: 'star', v: ['star'], f: ['starfish', 'stardust', 'starry', 'starlight'] },
+  { r: 'day', o: 'E', m: 'day', v: ['day'], f: ['daily', 'daybreak', 'daydream', 'holiday'] },
+  { r: 'night', o: 'E', m: 'night', v: ['night'], f: ['nightly', 'nightmare', 'nightfall', 'overnight'] },
+  { r: 'friend', o: 'E', m: 'friend', v: ['friend'], f: ['friendly', 'friendship', 'befriend'] },
+  { r: 'love', o: 'E', m: 'love', v: ['lov', 'love'], f: ['lovely', 'loveless', 'beloved', 'lover'] },
+  { r: 'life', o: 'E', m: 'life', v: ['lif', 'life', 'liv'], f: ['lively', 'lifeless', 'lifetime', 'lifeguard', 'live'] },
+  { r: 'death', o: 'E', m: 'death', v: ['death', 'dea'], f: ['deadly', 'deathbed'] },
+  { r: 'man', o: 'E', m: 'person, human', v: ['man'], f: ['mankind', 'manly', 'manmade'] },
+  { r: 'woman', o: 'E', m: 'woman', v: ['woman', 'women'], f: ['womanly', 'womanhood'] },
+  { r: 'good', o: 'E', m: 'good', v: ['good'], f: ['goodness', 'goodwill', 'goodnight'] },
+  { r: 'old', o: 'E', m: 'aged', v: ['old', 'eld'], f: ['elder', 'elderly'] },
+  { r: 'strong', o: 'E', m: 'strong', v: ['strong'], f: ['stronghold', 'strongman'] },
+  { r: 'worth', o: 'E', m: 'value, worthy', v: ['worth'], f: ['worthwhile', 'worthy', 'worthless'] },
+  { r: 'fast', o: 'E', m: 'firm, fixed', v: ['fast'], f: ['fasten', 'steadfast', 'breakfast'] },
+  { r: 'lore', o: 'E', m: 'knowledge, teaching', v: ['lore'], f: ['folklore'] },
+  { r: 'wit', o: 'E', m: 'know, mind', v: ['wit', 'wis'], f: ['witness', 'unwitting', 'witty', 'wisdom', 'wise'] },
+  { r: 'liev', o: 'E', m: 'believe', v: ['liev', 'leev', 'lief'], f: ['believe', 'belief', 'unbelievable', 'believable'] },
+  { r: 'dream', o: 'E', m: 'dream', v: ['dream'], f: ['dreamy', 'dreamland', 'daydream'] },
+  { r: 'song', o: 'E', m: 'song', v: ['song', 'sing'], f: ['songster', 'songbird', 'sing', 'singer'] },
+  { r: 'stead', o: 'E', m: 'place', v: ['stead'], f: ['instead', 'homestead', 'steady'] },
+  { r: 'field', o: 'E', m: 'open land', v: ['field'], f: ['battlefield', 'field', 'airfield', 'minefield'] },
+  { r: 'wood', o: 'E', m: 'wood, forest', v: ['wood'], f: ['woods', 'wooden', 'woodwork'] },
+  { r: 'stone', o: 'E', m: 'stone', v: ['stone', 'ston'], f: ['stonewall', 'headstone'] },
+  { r: 'gold', o: 'E', m: 'gold', v: ['gold'], f: ['golden', 'goldfish', 'goldsmith'] },
+  { r: 'blood', o: 'E', m: 'blood', v: ['blood', 'bleed'], f: ['bloodshot', 'bloodline', 'bloodhound', 'bleed'] },
+  { r: 'bone', o: 'E', m: 'bone', v: ['bone', 'bon'], f: ['bony', 'backbone', 'fishbone'] },
+  { r: 'heart', o: 'E', m: 'heart', v: ['heart', 'hear'], f: ['hearty', 'heartbreak', 'sweetheart'] },
+  { r: 'head', o: 'E', m: 'head', v: ['head'], f: ['headache', 'headline', 'ahead'] },
+  { r: 'eye', o: 'E', m: 'eye', v: ['eye'], f: ['eyewitness', 'eyeball', 'eyesore'] },
+  { r: 'ghost', o: 'E', m: 'spirit', v: ['ghost'], f: ['ghostly', 'ghostwriter', 'ghost town'] },
+  { r: 'doom', o: 'E', m: 'judgment, fate', v: ['doom'], f: ['doom', 'doomsday'] },
+  { r: 'yule', o: 'E', m: 'winter festival', v: ['yule', 'yul'], f: ['yule', 'yuletide'] }
+];
+
+/* Famous tricky words with hand-verified segmentations.
+ * Each value: array of [entryKey, kind] where kind is prefix|root|suffix|link.
+ */
+var RL_EXCEPTIONS = {
+  'pediatrician': [['paed', 'root'], ['iatr', 'root'], ['ic', 'suffix'], ['ian', 'suffix']],
+  'pediatric': [['paed', 'root'], ['iatr', 'root'], ['ic', 'suffix']],
+  'psychiatrist': [['psych', 'root'], ['iatr', 'root'], ['ist', 'suffix']],
+  'encyclopedia': [['en', 'prefix'], ['cycl', 'root'], ['o', 'link'], ['paed', 'root'], ['ia', 'suffix']],
+  'orthodontist': [['orth', 'root'], ['odont', 'root'], ['ist', 'suffix']],
+  'television': [['tele', 'prefix'], ['vis', 'root'], ['ion', 'suffix']],
+  'dictionary': [['dict', 'root'], ['ion', 'suffix'], ['ary', 'suffix']],
+  'transportation': [['trans', 'prefix'], ['port', 'root'], ['ation', 'suffix']],
+  'international': [['inter', 'prefix'], ['nat', 'root'], ['ion', 'suffix'], ['al', 'suffix']],
+  'unbelievable': [['un', 'prefix'], ['be', 'prefix'], ['liev', 'root'], ['able', 'suffix']],
+  'photography': [['photo', 'root'], ['graph', 'root'], ['y', 'suffix']],
+  'democracy': [['dem', 'root'], ['ocracy', 'suffix']],
+  'biology': [['bio', 'root'], ['ology', 'suffix']]
+};
+
+/* ---------------- lookup indexes ---------------- */
+var RL_VARIANT_MAP = {};
+(function rlBuildVariantMap() {
+  for (var i = 0; i < RL_ROOTS.length; i++) {
+    var e = RL_ROOTS[i];
+    for (var j = 0; j < e.v.length; j++) {
+      var v = e.v[j];
+      if (!RL_VARIANT_MAP[v]) RL_VARIANT_MAP[v] = [];
+      RL_VARIANT_MAP[v].push(e);
+    }
+  }
+})();
+var RL_VARIANTS_SORTED = Object.keys(RL_VARIANT_MAP).sort(function (a, b) { return b.length - a.length; });
+var RL_PREFIXES_SORTED = RL_PREFIXES.slice().sort(function (a, b) { return b.p.length - a.p.length; });
+var RL_SUFFIXES_SORTED = RL_SUFFIXES.slice().sort(function (a, b) { return b.s.length - a.s.length; });
+
+function rlNormalize(w) {
+  return String(w == null ? '' : w).toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function rlRootCount() { return RL_ROOTS.length; }
+
+function rlRoots() {
+  return RL_ROOTS.map(function (e) {
+    return { root: e.r, meaning: e.m, origin: rlOriginName(e.o), variants: e.v.slice(), family: e.f.slice() };
+  });
+}
+
+function rlFindRoot(key) {
+  var k = String(key || '').toLowerCase();
+  for (var i = 0; i < RL_ROOTS.length; i++) if (RL_ROOTS[i].r === k) return RL_ROOTS[i];
+  return null;
+}
+
+function rlSearchRoots(q) {
+  var s = String(q || '').toLowerCase().trim();
+  if (!s) return RL_ROOTS.slice();
+  return RL_ROOTS.filter(function (e) {
+    if (e.r.indexOf(s) !== -1) return true;
+    if (e.m.toLowerCase().indexOf(s) !== -1) return true;
+    for (var i = 0; i < e.f.length; i++) if (e.f[i].indexOf(s) !== -1) return true;
+    return false;
+  });
+}
+
+function rlRootsByOrigin(origin) {
+  var o = String(origin || '').toLowerCase();
+  return RL_ROOTS.filter(function (e) { return rlOriginName(e.o).toLowerCase() === o; });
+}
+
+function rlWordFamily(key) {
+  var e = rlFindRoot(key);
+  return e ? e.f.slice() : [];
+}
+
+function rlStats() {
+  return {
+    roots: RL_ROOTS.length,
+    greek: rlRootsByOrigin('greek').length,
+    latin: rlRootsByOrigin('latin').length,
+    germanic: rlRootsByOrigin('germanic').length,
+    prefixes: RL_PREFIXES.length,
+    suffixes: RL_SUFFIXES.length
+  };
+}
+
+/* ---------------- decoder internals ---------------- */
+function rlStripSequences(w, table, key, isPrefix, maxDepth) {
+  var out = [{ parts: [], rest: w }];
+  var cur = { parts: [], rest: w };
+  for (var d = 0; d < maxDepth; d++) {
+    var rest = cur.rest, hit = null;
+    for (var i = 0; i < table.length; i++) {
+      var a = table[i], t = a[key];
+      if (t.length < 2) continue;
+      var at = isPrefix
+        ? (rest.indexOf(t) === 0)
+        : (rest.length > t.length && rest.lastIndexOf(t) === rest.length - t.length);
+      if (at && rest.length - t.length >= 3) { hit = a; break; }
+    }
+    if (!hit) break;
+    var part = hit[key];
+    cur = {
+      parts: cur.parts.concat([{ text: part, entry: hit }]),
+      rest: isPrefix ? cur.rest.slice(part.length) : cur.rest.slice(0, cur.rest.length - part.length)
+    };
+    out.push(cur);
+  }
+  return out;
+}
+
+/* Match a bare core against the root database.
+ * Returns {parts, score, partial?} or null.
+ * score: 3 exact, 2.5 compound (root+root), 2 root prefix, 1 substring.
+ */
+function rlMatchCore(core) {
+  if (!core) return null;
+  if (RL_VARIANT_MAP[core]) {
+    var e0 = RL_VARIANT_MAP[core][0];
+    return { parts: [{ text: core, kind: 'root', entry: e0, variant: core }], score: 3 };
+  }
+  for (var i = 0; i < RL_VARIANTS_SORTED.length; i++) {
+    var v = RL_VARIANTS_SORTED[i];
+    if (v.length < 2) continue;
+    if (core.indexOf(v) === 0 && core.length > v.length) {
+      var e2 = RL_VARIANT_MAP[v][0];
+      var rest = core.slice(v.length);
+      var link = null, restCore = rest;
+      if (rest.length > 1 && 'aeiou'.indexOf(rest.charAt(0)) !== -1) {
+        var subV = rlMatchCore(rest.slice(1));
+        if (subV && subV.score >= 2) {
+          link = { text: rest.charAt(0), kind: 'link', entry: null, variant: null };
+          restCore = rest.slice(1);
+        }
+      }
+      var sub = rlMatchCore(restCore);
+      if (sub && sub.score >= 2) {
+        var parts = [{ text: v, kind: 'root', entry: e2, variant: v }];
+        if (link) parts.push(link);
+        return { parts: parts.concat(sub.parts), score: 2.5 };
+      }
+      return { parts: [{ text: v, kind: 'root', entry: e2, variant: v }], score: 2, partial: true };
+    }
+  }
+  for (var k = 0; k < RL_VARIANTS_SORTED.length; k++) {
+    var vv = RL_VARIANTS_SORTED[k];
+    if (vv.length < 3) continue;
+    if (core.indexOf(vv) !== -1) {
+      var e3 = RL_VARIANT_MAP[vv][0];
+      return { parts: [{ text: vv, kind: 'root', entry: e3, variant: vv }], score: 1, partial: true };
+    }
+  }
+  return null;
+}
+
+function rlMorphemeFromKey(key, kind) {
+  var i, e;
+  if (kind === 'prefix') {
+    for (i = 0; i < RL_PREFIXES.length; i++) if (RL_PREFIXES[i].p === key) {
+      e = RL_PREFIXES[i];
+      return { part: key, kind: 'prefix', meaning: e.m, origin: rlOriginName(e.o) };
+    }
+    return null;
+  }
+  if (kind === 'suffix') {
+    for (i = 0; i < RL_SUFFIXES.length; i++) if (RL_SUFFIXES[i].s === key) {
+      e = RL_SUFFIXES[i];
+      return { part: key, kind: 'suffix', meaning: e.m, origin: rlOriginName(e.o) };
+    }
+    return null;
+  }
+  if (kind === 'link') return { part: key, kind: 'link', meaning: 'combining vowel', origin: 'Greek' };
+  var r = rlFindRoot(key);
+  if (!r) return null;
+  return { part: key, kind: 'root', root: r.r, meaning: r.m, origin: rlOriginName(r.o) };
+}
+
+/* Decode any English word into morphemes.
+ * Returns {word, normalized, morphemes:[{part,kind,meaning,origin,root?}], ok, note, confidence}.
+ * Graceful on unknown words: ok=false, note='no-root', morphemes may be [].
+ */
+function rlDecodeWord(word) {
+  var raw = String(word == null ? '' : word);
+  var w = rlNormalize(raw);
+  var res = { word: raw.trim(), normalized: w, morphemes: [], ok: false, note: '', confidence: 0 };
+  if (!w) { res.note = 'empty'; return res; }
+  if (w.length < 3) { res.note = 'too-short'; return res; }
+  if (RL_EXCEPTIONS[w]) {
+    var mp = RL_EXCEPTIONS[w].map(function (pair) { return rlMorphemeFromKey(pair[0], pair[1]); })
+      .filter(function (x) { return !!x; });
+    res.morphemes = mp;
+    res.ok = mp.length > 0;
+    res.note = res.ok ? 'verified' : 'no-root';
+    res.confidence = res.ok ? 1 : 0;
+    return res;
+  }
+  var preSeqs = rlStripSequences(w, RL_PREFIXES_SORTED, 'p', true, 2);
+  var best = null;
+  for (var pi = 0; pi < preSeqs.length; pi++) {
+    var sufSeqs = rlStripSequences(preSeqs[pi].rest, RL_SUFFIXES_SORTED, 's', false, 2);
+    for (var si = 0; si < sufSeqs.length; si++) {
+      var core = sufSeqs[si].rest;
+      var cm = rlMatchCore(core);
+      var score = cm ? cm.score : 0;
+      var affixes = preSeqs[pi].parts.length + sufSeqs[si].parts.length;
+      if (!best || score > best.score ||
+          (score === best.score && (affixes < best.affixes ||
+            (affixes === best.affixes && core.length > best.core.length)))) {
+        best = { score: score, affixes: affixes, core: core, cm: cm, pre: preSeqs[pi], suf: sufSeqs[si] };
+      }
+    }
+  }
+  var morphemes = [];
+  best.pre.parts.forEach(function (x) {
+    morphemes.push({ part: x.text, kind: 'prefix', meaning: x.entry.m, origin: rlOriginName(x.entry.o) });
+  });
+  if (best.cm) {
+    best.cm.parts.forEach(function (x) {
+      if (x.kind === 'link') morphemes.push({ part: x.text, kind: 'link', meaning: 'combining vowel', origin: 'Greek' });
+      else morphemes.push({ part: x.text, kind: 'root', root: x.entry.r, meaning: x.entry.m, origin: rlOriginName(x.entry.o) });
+    });
+  }
+  var sufParts = best.suf.parts.slice().reverse();
+  sufParts.forEach(function (x) {
+    morphemes.push({ part: x.text, kind: 'suffix', meaning: x.entry.m, origin: rlOriginName(x.entry.o) });
+  });
+  res.morphemes = morphemes;
+  var hasRoot = morphemes.some(function (m) { return m.kind === 'root'; });
+  res.ok = hasRoot && best.score >= 2;
+  res.confidence = Math.round((best.score / 3) * 100) / 100;
+  res.note = !hasRoot ? 'no-root' : ((best.cm && best.cm.partial) ? 'partial' : 'full');
+  return res;
+}
+
+/* ---------------- quiz: "guess from roots" ---------------- */
+var RL_QUIZ = [
+  { word: 'pseudonym', segs: [['pseudo', 'false'], ['onym', 'name']], choices: ['a fictitious name used by an author', 'a false god worshipped in secret', 'a name shared by twins', 'a famous public speech'], answer: 0 },
+  { word: 'benevolent', segs: [['bene', 'good'], ['vol', 'wish']], choices: ['kind and generous; wishing others well', 'a gifted singer', 'a lucky charm', 'a legal contract'], answer: 0 },
+  { word: 'democracy', segs: [['dem', 'people'], ['cracy', 'rule']], choices: ['government by the people', 'rule by a single king', 'a public market', 'a written law code'], answer: 0 },
+  { word: 'photograph', segs: [['photo', 'light'], ['graph', 'write']], choices: ['a picture made with light', 'a written description of sound', 'a map of stars', 'a drawing of plants'], answer: 0 },
+  { word: 'transport', segs: [['trans', 'across'], ['port', 'carry']], choices: ['to carry across from one place to another', 'to change shape completely', 'to build something again', 'to look at closely'], answer: 0 },
+  { word: 'autobiography', segs: [['auto', 'self'], ['bio', 'life'], ['graph', 'write']], choices: ["the story of a person's life written by that person", 'a book about cars', 'a biography of a king', 'a collection of maps'], answer: 0 },
+  { word: 'telescope', segs: [['tele', 'far'], ['scope', 'see']], choices: ['an instrument for seeing distant objects', 'a device that measures heat', 'a faraway star', 'a kind of microscope slide'], answer: 0 },
+  { word: 'contradict', segs: [['contra', 'against'], ['dict', 'say']], choices: ['to say the opposite; deny', 'to compile a dictionary', 'to speak very softly', 'to agree fully'], answer: 0 },
+  { word: 'preview', segs: [['pre', 'before'], ['view', 'see']], choices: ['to see or show beforehand', 'a second opinion', 'a rear-view mirror', 'a legal review'], answer: 0 },
+  { word: 'epidermis', segs: [['epi', 'upon'], ['derm', 'skin']], choices: ['the outer layer of the skin', 'a contagious skin disease', 'a surgical tool', 'the study of insects'], answer: 0 },
+  { word: 'chronology', segs: [['chron', 'time'], ['ology', 'study of']], choices: ['the arrangement of events in time order', 'the study of ancient coins', 'a history of kings', 'a calendar of festivals'], answer: 0 },
+  { word: 'microbe', segs: [['micro', 'small'], ['bio', 'life']], choices: ['a microscopic living organism', 'a small robot', 'a tiny computer chip', 'a grain of sand'], answer: 0 }
+];
+
+function rlQuizItems() { return RL_QUIZ.slice(); }
+
+function rlQuizQuestion(i) {
+  var n = RL_QUIZ.length;
+  var idx = ((i % n) + n) % n;
+  var q = RL_QUIZ[idx];
+  return {
+    index: idx,
+    word: q.word,
+    segments: q.segs.map(function (s) { return { part: s[0], meaning: s[1] }; }),
+    choices: q.choices.slice(),
+    answer: q.answer
+  };
+}
+
+/* ---------------- GRE / SAT root packs ---------------- */
+function rlPacks() {
+  function pack(keys, name, blurb) {
+    return {
+      name: name,
+      blurb: blurb,
+      roots: keys.map(function (k) {
+        var e = rlFindRoot(k);
+        return e ? { root: e.r, meaning: e.m, origin: rlOriginName(e.o) } : null;
+      }).filter(function (x) { return !!x; })
+    };
+  }
+  return {
+    gre: pack(
+      ['bon', 'mal', 'soph', 'chron', 'dem', 'path', 'phon', 'graph', 'therm', 'dict', 'ject', 'port', 'scrib', 'tract', 'vers', 'vis', 'voc', 'cred', 'fid', 'gen'],
+      'GRE High-Frequency Roots',
+      'The twenty roots that unlock the most GRE-level vocabulary. Master these and hundreds of hard words decode themselves.'
+    ),
+    sat: pack(
+      ['aud', 'spect', 'struct', 'mit', 'duc', 'rupt', 'grad', 'cur', 'pend', 'pos', 'loc', 'mov', 'greg', 'civ', 'aqu', 'mar', 'luc', 'nov', 'onym', 'morph'],
+      'SAT High-Frequency Roots',
+      'Twenty roots behind the trickiest SAT reading words. Learn the root, guess the word, beat the question.'
+    )
+  };
+}
+
+</script>
+<style>
+  :root{
+    --bg:#faf6ee; --paper:#fffdf8; --ink:#292524; --muted:#78716c;
+    --violet:#7c3aed; --violet-deep:#5b21b6; --amber:#f59e0b; --amber-deep:#b45309;
+    --teal:#10b981; --line:#e7dfc9;
+  }
+  html{scroll-behavior:smooth}
+  body{background:var(--bg); color:var(--ink); font-family:'Inter',system-ui,sans-serif;}
+  .serif{font-family:'Fraunces',Georgia,serif;}
+  /* faint root-system backdrop */
+  .rootlines{
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(124,58,237,.06) 0, transparent 34%),
+      radial-gradient(circle at 88% 8%, rgba(245,158,11,.09) 0, transparent 30%),
+      radial-gradient(circle at 78% 88%, rgba(16,185,129,.07) 0, transparent 32%);
+  }
+  .card{
+    background:var(--paper); border:1.5px solid var(--line); border-radius:1.1rem;
+    box-shadow:0 18px 40px -28px rgba(124,58,237,.35);
+  }
+  .field{
+    background:#fff; border:2px solid var(--line); border-radius:.9rem;
+    padding:.9rem 1.1rem; width:100%; font-size:1.15rem; color:var(--ink);
+  }
+  .field:focus{outline:3px solid rgba(124,58,237,.28); border-color:var(--violet);}
+  .btn-root{
+    background:linear-gradient(135deg, var(--violet), var(--violet-deep)); color:#fff; font-weight:800;
+    border-radius:.9rem; box-shadow:0 12px 26px -12px rgba(124,58,237,.7);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn-root:hover{transform:translateY(-2px); box-shadow:0 16px 30px -12px rgba(124,58,237,.8);}
+  .btn-root:active{transform:translateY(1px);}
+  .btn-ghost{border:2px solid var(--line); color:var(--ink); border-radius:.9rem; font-weight:600; transition:all .12s ease; background:#fff;}
+  .btn-ghost:hover{border-color:var(--violet); color:var(--violet-deep);}
+  .tab-btn{border:2px solid var(--line); background:#fff; border-radius:999px; font-weight:700; font-size:.85rem; padding:.55rem 1.1rem; color:var(--muted); transition:all .15s ease; white-space:nowrap;}
+  .tab-btn:hover{border-color:var(--violet); color:var(--violet-deep);}
+  .tab-btn.active{background:var(--violet); border-color:var(--violet); color:#fff; box-shadow:0 10px 22px -12px rgba(124,58,237,.8);}
+  .morph{border-radius:.9rem; border:2px solid; padding:.7rem .9rem; background:#fff; min-width:0;}
+  .morph .k{font-size:.62rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase;}
+  .origin-dot{display:inline-block; width:.65rem; height:.65rem; border-radius:999px; margin-right:.35rem; vertical-align:baseline;}
+  .chip-word{border:1.5px solid var(--line); background:#fff; border-radius:999px; padding:.3rem .8rem; font-size:.82rem; font-weight:600;}
+  .chip-word:hover{border-color:var(--amber); color:var(--amber-deep); cursor:pointer;}
+  .tree-line{width:2px; background:repeating-linear-gradient(180deg, var(--violet) 0 6px, transparent 6px 12px); margin:0 auto;}
+  .root-card{border:1.5px solid var(--line); background:#fff; border-radius:.9rem; padding:.8rem .95rem; transition:all .12s ease;}
+  .root-card:hover{border-color:var(--violet); transform:translateY(-2px); box-shadow:0 12px 24px -16px rgba(124,58,237,.5);}
+  .pill{border:1.5px solid var(--line); background:#fff; border-radius:999px; padding:.35rem .95rem; font-size:.8rem; font-weight:700; color:var(--muted); cursor:pointer;}
+  .pill.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .quiz-choice{border:2px solid var(--line); background:#fff; border-radius:.9rem; padding:.8rem 1rem; text-align:left; font-weight:600; width:100%; transition:all .12s ease;}
+  .quiz-choice:hover:not(:disabled){border-color:var(--violet);}
+  .quiz-choice.correct{border-color:var(--teal); background:#ecfdf5;}
+  .quiz-choice.wrong{border-color:#ef4444; background:#fef2f2;}
+  .faq{border:1.5px solid var(--line); background:var(--paper); border-radius:.9rem; padding:1rem 1.2rem;}
+  .faq summary{cursor:pointer; font-weight:700; list-style:none; display:flex; gap:.6rem; align-items:baseline;}
+  .faq summary::-webkit-details-marker{display:none;}
+  .faq summary::before{content:"+"; color:var(--violet); font-weight:900; font-size:1.2rem; line-height:1;}
+  .faq[open] summary::before{content:"\2013";}
+  .faq p{color:#57534e; line-height:1.7; margin-top:.6rem;}
+  .article h2{font-family:'Fraunces',Georgia,serif; font-size:1.5rem; font-weight:900; margin:2.4rem 0 .9rem; color:var(--violet-deep);}
+  .article h3{font-size:1.12rem; font-weight:800; margin:1.7rem 0 .6rem; color:var(--ink);}
+  .article p{margin:.85rem 0; line-height:1.8; color:#44403c;}
+  .article ul, .article ol{margin:.85rem 0; padding-left:1.5rem; color:#44403c; line-height:1.8;}
+  .article ul{list-style:disc;} .article ol{list-style:decimal;}
+  .article strong{color:var(--ink);}
+  .article a{color:var(--violet); text-decoration:underline;}
+  .kbd{font-family:ui-monospace,monospace; background:#f5f0e1; border:1px solid var(--line); border-bottom-width:3px; border-radius:.4rem; padding:.05rem .45rem; font-size:.85em;}
+  .no-print{}
+  @media print{ .no-print{display:none;} }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"What is a word root decoder?","acceptedAnswer":{"@type":"Answer","text":"A word root decoder breaks an English word into its morphemes — prefixes, roots and suffixes — and shows the meaning and origin of each part. For example, it decodes 'transport' as trans (Latin, 'across') + port (Latin, 'carry'), so the word literally means 'carry across'. Rootly does this instantly for any word you type, using a built-in database of 285 Greek, Latin and Germanic roots."}},
+    {"@type":"Question","name":"How many Greek and Latin roots are in the Rootly word root dictionary?","acceptedAnswer":{"@type":"Answer","text":"The Rootly word root dictionary contains 285 roots: 142 Latin, 98 Greek and 44 Germanic, plus 92 prefixes and 78 suffixes. Every root entry includes its meaning, spelling variants and a word-family list so you can see all the English words grown from the same root."}},
+    {"@type":"Question","name":"Can learning root words really improve my vocabulary for GRE and SAT?","acceptedAnswer":{"@type":"Answer","text":"Yes. Test makers recycle a small set of high-frequency roots: roughly 60 Greek and Latin roots account for a huge share of hard GRE and SAT words. Rootly's GRE and SAT packs isolate the 20 most productive roots per exam, and the 'guess from roots' quiz trains you to infer an unknown word's meaning from its parts — the exact skill vocabulary questions reward."}},
+    {"@type":"Question","name":"What is the difference between a prefix, a root and a suffix?","acceptedAnswer":{"@type":"Answer","text":"A root carries the core meaning of a word (port = carry). A prefix attaches to the front and modifies direction or intensity (trans- = across). A suffix attaches to the end and usually changes the word's grammar or shades its meaning (-ation = the act of). Rootly color-codes every morpheme by origin — violet for Greek, amber for Latin, teal for Germanic — so you can see the word's history at a glance."}},
+    {"@type":"Question","name":"What does Rootly do with a word it cannot decode?","acceptedAnswer":{"@type":"Answer","text":"Some English words have no classical root — they are Germanic compounds like 'replay', or their history is too tangled for a simple split. In that case Rootly tells you honestly that no root was identified instead of inventing a fake breakdown, and suggests trying one of the example words or searching the root dictionary directly."}},
+    {"@type":"Question","name":"Is Rootly free to use without signing up?","acceptedAnswer":{"@type":"Answer","text":"Yes. Rootly offers unlimited free usage of the decoder, the full root dictionary, the roots quiz and the GRE/SAT packs. There is no signup, no paywall and no watermark — everything runs in your browser."}}
+  ]
+}
+</script>
+</head>
+<body id="top" class="antialiased rootlines">
+
+<!-- ============ STICKY HEADER ============ -->
+<header class="sticky top-0 z-50 border-b" style="background:rgba(250,246,238,.94); backdrop-filter:blur(10px); border-color:#e7dfc9;">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5">
+      <svg width="34" height="34" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path d="M20 6v10M20 16c-5 0-9 2.5-11 7M20 16c5 0 9 2.5 11 7M20 16v22" stroke="#7c3aed" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="9" cy="25" r="2.4" fill="#f59e0b"/>
+        <circle cx="31" cy="25" r="2.4" fill="#f59e0b"/>
+        <circle cx="20" cy="6" r="3" fill="#10b981"/>
+        <path d="M14 34c2-3 4-3 6 0s4 3 6 0" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <span class="serif text-2xl font-black tracking-tight">Root<span style="color:#7c3aed">ly</span></span>
+    </a>
+    <nav class="flex items-center gap-5 text-sm font-semibold">
+      <a href="#top" class="hover:text-[#7c3aed] transition">Home</a>
+      <a href="https://fixoraa.tech" class="hover:text-[#7c3aed] transition">More Tools</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ TOP AD ============ -->
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pt-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <div class="origin-top scale-[0.44] sm:scale-100 shrink-0">
+        <script>
+          atOptions = { 'key' : '4e68ac77881c17fe128a46565d9a4e8c', 'format' : 'iframe', 'height' : 90, 'width' : 728, 'params' : {} };
+        </script>
+        <script src="https://www.highrevenueformat.com/4e68ac77881c17fe128a46565d9a4e8c/invoke.js"></script>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HERO + TOOL ============ -->
+<main class="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+  <div class="text-center max-w-2xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 text-xs font-extrabold tracking-wide uppercase bg-white border-2 px-4 py-1.5 rounded-full" style="border-color:#7c3aed; color:#5b21b6;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="#10b981" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Unlimited Free Usage
+    </span>
+    <h1 class="serif text-4xl sm:text-5xl font-black mt-4 leading-tight">Decode any English word<br>down to its <span style="color:#7c3aed">roots</span>.</h1>
+    <p class="mt-3 text-base sm:text-lg" style="color:#78716c">Type a word. Rootly splits it into Greek, Latin &amp; Germanic morphemes, grows its word-family tree, and quizzes you on the roots.</p>
+    <div class="mt-4 flex items-center justify-center gap-4 text-xs font-bold flex-wrap" style="color:#78716c">
+      <span><span class="origin-dot" style="background:#7c3aed"></span>Greek</span>
+      <span><span class="origin-dot" style="background:#f59e0b"></span>Latin</span>
+      <span><span class="origin-dot" style="background:#10b981"></span>Germanic</span>
+      <span class="text-slate-400">·</span><span id="stat-line">285 roots · 92 prefixes · 78 suffixes</span>
+    </div>
+  </div>
+
+  <!-- tabs -->
+  <div class="mt-8 flex gap-2 justify-start sm:justify-center overflow-x-auto pb-1" role="tablist" aria-label="Rootly tools">
+    <button id="tab-decoder" class="tab-btn active" role="tab">Word Decoder</button>
+    <button id="tab-dict" class="tab-btn" role="tab">Root Dictionary</button>
+    <button id="tab-quiz" class="tab-btn" role="tab">Roots Quiz</button>
+    <button id="tab-packs" class="tab-btn" role="tab">GRE / SAT Packs</button>
+  </div>
+
+  <!-- ============ PANEL: DECODER ============ -->
+  <section id="panel-decoder" class="card mt-4 p-5 sm:p-8">
+    <div class="flex flex-col sm:flex-row gap-3">
+      <input id="word-input" type="text" class="field serif" placeholder="Type any English word — e.g. transportation" autocomplete="off" spellcheck="false" aria-label="Word to decode">
+      <button id="decode-btn" class="btn-root px-8 py-3 text-lg whitespace-nowrap">Decode</button>
+    </div>
+    <div id="example-chips" class="mt-3 flex flex-wrap gap-2 text-sm">
+      <span class="text-xs font-bold uppercase tracking-wider self-center" style="color:#78716c">Try:</span>
+    </div>
+    <p id="decode-note" class="mt-4 text-sm font-semibold hidden" style="color:#b45309"></p>
+    <div id="decode-result" class="mt-4 hidden">
+      <h2 class="serif text-xl font-black mb-3">Morpheme breakdown</h2>
+      <div id="morpheme-list" class="flex flex-wrap gap-3 items-stretch"></div>
+      <div id="family-tree" class="mt-6"></div>
+    </div>
+  </section>
+
+  <!-- ============ PANEL: DICTIONARY ============ -->
+  <section id="panel-dict" class="card mt-4 p-5 sm:p-8 hidden">
+    <div class="flex flex-col sm:flex-row gap-3">
+      <input id="root-search" type="text" class="field" placeholder="Search 285 roots — try 'carry', 'spect', 'light'…" autocomplete="off" aria-label="Search roots">
+    </div>
+    <div id="origin-filter" class="mt-4 flex gap-2 flex-wrap">
+      <button class="pill active" data-origin="all">All origins</button>
+      <button class="pill" data-origin="greek"><span class="origin-dot" style="background:#7c3aed"></span>Greek</button>
+      <button class="pill" data-origin="latin"><span class="origin-dot" style="background:#f59e0b"></span>Latin</button>
+      <button class="pill" data-origin="germanic"><span class="origin-dot" style="background:#10b981"></span>Germanic</button>
+    </div>
+    <p id="dict-count" class="mt-3 text-sm font-semibold" style="color:#78716c"></p>
+    <div id="root-grid" class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+  </section>
+
+  <!-- ============ PANEL: QUIZ ============ -->
+  <section id="panel-quiz" class="card mt-4 p-5 sm:p-8 hidden">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="serif text-2xl font-black">Guess from the roots</h2>
+      <span id="quiz-score" class="text-sm font-extrabold px-4 py-1.5 rounded-full bg-white border-2" style="border-color:#e7dfc9">Score 0 / 0</span>
+    </div>
+    <p class="text-sm mb-4" style="color:#78716c">Read the root meanings, then guess the word's definition. This is the exact strategy GRE &amp; SAT vocabulary questions reward.</p>
+    <div id="quiz-card">
+      <div class="text-center">
+        <div id="quiz-word" class="serif text-4xl font-black" style="color:#5b21b6"></div>
+        <div id="quiz-segments" class="mt-3 flex flex-wrap justify-center gap-2"></div>
+      </div>
+      <div id="quiz-choices" class="mt-5 grid gap-2.5 max-w-xl mx-auto"></div>
+      <p id="quiz-feedback" class="mt-4 text-center font-bold min-h-[1.75rem]"></p>
+      <div class="text-center mt-2">
+        <button id="quiz-next" class="btn-ghost px-6 py-2.5">Next word →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PANEL: PACKS ============ -->
+  <section id="panel-packs" class="card mt-4 p-5 sm:p-8 hidden">
+    <h2 class="serif text-2xl font-black mb-2">High-frequency root packs</h2>
+    <p class="text-sm mb-5" style="color:#78716c">Twenty roots per exam. Learn these and hundreds of hard words decode themselves.</p>
+    <div class="grid md:grid-cols-2 gap-5">
+      <div class="rounded-xl border-2 p-5 bg-white" style="border-color:#7c3aed">
+        <h3 class="serif text-xl font-black" style="color:#5b21b6">GRE Pack</h3>
+        <p class="text-sm mt-1 mb-3" style="color:#78716c">The roots behind the toughest GRE vocabulary.</p>
+        <div id="pack-gre" class="flex flex-col gap-2"></div>
+      </div>
+      <div class="rounded-xl border-2 p-5 bg-white" style="border-color:#f59e0b">
+        <h3 class="serif text-xl font-black" style="color:#b45309">SAT Pack</h3>
+        <p class="text-sm mt-1 mb-3" style="color:#78716c">The roots behind tricky SAT reading words.</p>
+        <div id="pack-sat" class="flex flex-col gap-2"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ BOTTOM AD ============ -->
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pb-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <script async src="https://js.wpadmngr.com/static/adManager.js" data-admpid="464498"></script>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SEO ARTICLE ============ -->
+<div class="mx-auto max-w-6xl px-4 sm:px-6 pb-10">
+<article class="article card p-6 sm:p-10">
+<h2>The complete guide to English word roots: decode any word like a linguist</h2>
+<p>Every English word has a biography. <strong>Transport</strong> is not just seven letters you memorized in school — it is <em>trans</em> (Latin, "across") fused to <em>port</em> (Latin, "carry"), a two-thousand-year-old instruction that still reads perfectly today: <em>carry across</em>. Once you see words this way, vocabulary stops being a list to memorize and becomes a system to decode. That is the entire idea behind Rootly, the free <strong>word root decoder</strong> at the top of this page: type any English word and it splits the word into its morphemes — prefixes, roots and suffixes — showing you the meaning and origin of every piece, color-coded by language family.</p>
+<p>Why does this matter? Because English is a magpie language. Roughly sixty percent of its vocabulary comes from Latin, much of it arriving through French after 1066, and another large share comes from Greek, mostly through scientific and academic coinages of the last four centuries. The remaining core — the short, everyday words like <em>water</em>, <em>house</em>, <em>love</em>, <em>strong</em> — is Germanic, inherited from Old English. A single long English word is often a sandwich of these layers: <strong>television</strong> joins the Greek <em>tele</em> ("far") to the Latin <em>vis</em> ("see"). When you learn the roots, you are not learning one word; you are learning the key to dozens.</p>
+
+<h2>How a word root decoder works</h2>
+<p>A word root decoder performs morphological analysis, the same first step a linguist takes with an unfamiliar word. It works in three passes. First it peels off <strong>prefixes</strong>, the syllables at the front that set direction or intensity: <em>re-</em> (again), <em>pre-</em> (before), <em>trans-</em> (across), <em>anti-</em> (against). Then it peels off <strong>suffixes</strong>, the endings that usually change a word's grammar — <em>-ation</em> turns a verb into "the act of", <em>-able</em> means "capable of", <em>-ology</em> means "the study of". What remains is the <strong>root</strong>, the semantic core that carries the main meaning. Rootly checks that core against a built-in database of 285 roots, tries the longest match first, and even handles compounds like <strong>photograph</strong> (<em>photo</em>, light + <em>graph</em>, write) and connecting vowels like the <em>o</em> in <strong>speedometer</strong>.</p>
+<p>Each morpheme is color-coded by origin so the word's history is visible at a glance: <strong style="color:#7c3aed">violet for Greek</strong>, <strong style="color:#b45309">amber for Latin</strong>, and <strong style="color:#059669">teal for Germanic</strong>. Hover-free and instant, the breakdown appears the moment you press Decode, together with a confidence note. If a word has no identifiable classical root — perfectly normal for Germanic compounds like <em>replay</em> or everyday words like <em>hello</em> — Rootly says so honestly instead of inventing a fake etymology. A decoder you can trust is one that knows when to stay quiet.</p>
+
+<h2>Inside the english root words list: 285 roots, three language families</h2>
+<p>The heart of Rootly is its <strong>english root words list</strong>, a hand-compiled <strong>word root dictionary</strong> of 285 entries: 142 Latin roots, 98 Greek roots and 44 Germanic roots, backed by 92 prefixes and 78 suffixes. Every entry carries four things: the canonical root spelling, its plain-English meaning, its spelling variants (because <em>dict</em>, <em>dic</em> and <em>diction</em> are the same root wearing different clothes), and a word-family list showing the English words grown from it.</p>
+<p>The Latin section covers the workhorses of academic English. <strong>Port</strong> (carry) gives you <em>transport, portable, import, export, deport, report</em> and <em>support</em>. <strong>Dict</strong> (say) gives you <em>dictate, predict, verdict, contradict</em> and <em>dictionary</em>. <strong>Scrib/script</strong> (write) gives you <em>describe, manuscript, prescribe</em> and <em>inscription</em>. <strong>Vers/vert</strong> (turn) quietly powers <em>reverse, convert, invert, divert</em> and even <em>anniversary</em> (the turning of the year). Learn one Latin root and you typically unlock six to ten words at once; learn fifty and several hundred words become transparent.</p>
+<p>The Greek section is the language of science, medicine and philosophy. <strong>Cardi</strong> (heart) sits inside <em>cardiac, cardiology</em> and <em>tachycardia</em>. <strong>Derm</strong> (skin) explains <em>dermatology, epidermis</em> and <em>hypodermic</em> (literally "under the skin"). <strong>Chron</strong> (time) connects <em>chronic, chronicle, synchronize</em> and <em>anachronism</em> ("against time" — something in the wrong era). <strong>Morph</strong> (form) links <em>metamorphosis, amorphous</em> and <em>anthropomorphic</em>. Greek roots love to combine with each other, which is why long scientific terms that look terrifying — <em>electroencephalogram</em>, anyone — are usually just three or four friendly roots holding hands.</p>
+<p>The Germanic section is easy to overlook and impossible to do without. These are the oldest roots in the language: <strong>kin</strong> (family), <strong>craft</strong> (skill), <strong>wright</strong> (worker — surviving in <em>playwright</em> and <em>wheelwright</em>), <strong>water, sun, moon, star, day, night, friend, love, life, death, heart, head, eye, blood, bone, gold, wood, stone</strong>. They rarely appear in textbooks of "root words" because they feel too ordinary, but they explain thousands of compounds: <em>waterfall, sunburn, moonlight, stardust, daybreak, nightmare, friendly, lovely, lively, deadly, hearty, headache, eyewitness, bloodhound, backbone, golden, wooden, stonewall</em>. A decoder that ignored Germanic roots would go silent on the most human part of English.</p>
+
+<h2>Word-family trees: one root, a whole vocabulary</h2>
+<p>Below every decoded word, Rootly grows a <strong>word-family tree</strong> for each root it found. Decode <strong>transport</strong> and you get the <em>port</em> tree: <em>portable, import, export, deport, report, support, porter</em>. This is deliberately designed around how memory works. Psychologists call it elaborative encoding — a word remembered inside a network of related words sticks far better than a word memorized alone. When you see that <em>import</em> is "carry in", <em>export</em> is "carry out", <em>deport</em> is "carry away" and <em>report</em> is "carry back" (news), the whole family becomes one logical idea instead of four separate dictionary entries.</p>
+<p>Family trees also reveal false friends and true ones. <strong>Cred</strong> (believe) connects <em>credit, credible, credential</em> and <em>creed</em> — and suddenly <em>incredible</em> ("not believable") and <em>accredit</em> ("to give belief to", i.e. certify) make sense. <strong>Mort</strong> (death) connects <em>mortal, immortal, mortuary</em> and, surprisingly, <em>mortgage</em> — literally a "death pledge", a loan that dies when it is paid off. These little stories are the reason root-based learning beats flashcards: every word arrives with a narrative attached.</p>
+
+<h2>The greek latin roots quiz: guess the meaning from the parts</h2>
+<p>Knowing roots is only half the skill; the other half is <em>using</em> them on words you have never seen. That is what the <strong>greek latin roots quiz</strong> on this page trains. Each round shows you a word broken into its roots with plain-English glosses — for example <strong>pseudonym</strong> as <em>pseudo</em> (false) + <em>onym</em> (name) — and asks you to pick the correct definition from four options. The distractors are plausible enough that you cannot coast; you have to actually combine the parts.</p>
+<p>This "guess from roots" strategy is exactly what standardized tests reward. When a GRE or SAT question drops an unfamiliar word like <em>antediluvian</em> into a sentence, students who know <em>ante</em> (before) and the biblical <em>diluvium</em> (flood) can reason their way to "ancient, out of date" without ever having memorized the word. The quiz keeps score across rounds so you can watch the strategy turn into instinct. Twelve hand-written questions rotate through the highest-value roots, and every question teaches two or three roots at once — efficient by design.</p>
+
+<h2>GRE and SAT high-frequency root packs</h2>
+<p>Test preparation loves the 80/20 rule: a small set of roots does most of the work. Rootly's exam packs isolate the twenty most productive roots for each test. The <strong>GRE pack</strong> covers roots like <strong>bon/ben</strong> (good), <strong>mal</strong> (bad), <strong>soph</strong> (wise), <strong>chron</strong> (time), <strong>dem</strong> (people), <strong>path</strong> (feeling), <strong>phon</strong> (sound), <strong>graph</strong> (write), <strong>therm</strong> (heat) and <strong>cred</strong> (believe) — the roots behind words like <em>benevolent, malevolent, sophisticated, anachronism, pandemic, apathy, cacophony, epigram, hypothermia</em> and <em>incredulous</em>. The <strong>SAT pack</strong> covers roots like <strong>aud</strong> (hear), <strong>spect</strong> (look), <strong>rupt</strong> (break), <strong>grad</strong> (step), <strong>luc</strong> (light) and <strong>morph</strong> (form) — the roots behind <em>audible, introspect, disrupt, degrade, elucidate</em> and <em>amorphous</em>.</p>
+<p>Each pack entry shows the root, its meaning and its origin color, so a week's study can be as simple as opening one pack a day and reading the twenty entries aloud. Pair each root with its word family — click through to the dictionary — and twenty roots become roughly one hundred and fifty words. That is the arithmetic that makes root study the highest-leverage vocabulary work there is.</p>
+
+<h2>How to study word roots so they stick</h2>
+<p>A decoder is a tool, not a teacher, so here is the study method that makes roots permanent. <strong>First, decode before you look up.</strong> When you meet an unknown word, split it yourself — prefix, root, suffix — and guess the meaning from the parts. Then check a dictionary. The small effort of guessing roughly doubles retention compared to reading the definition cold. <strong>Second, learn roots in families, not alone.</strong> Never learn <em>port</em> by itself; learn it inside <em>transport, import, export, support</em>. Rootly's family trees are built for exactly this. <strong>Third, say the story out loud.</strong> "Democracy is the people ruling" is stickier than "dem = people, cracy = rule". <strong>Fourth, hunt roots in the wild.</strong> For one week, try to spot three roots a day in news headlines, subtitles or textbooks — <em>pandemic</em> in a health article, <em>photosynthesis</em> in a biology chapter, <em>benevolent</em> in a novel. Each sighting is a free repetition.</p>
+<p>Common pitfalls are worth knowing. <strong>Not every similar-looking chunk is a root.</strong> The <em>ham</em> in <em>hamster</em> is not the <em>ham</em> of <em>hamlet</em>, and folk etymologies are everywhere — which is why Rootly refuses to guess when it finds no real root. <strong>Meanings drift.</strong> <em>Sophomore</em> is literally "wise fool" (<em>soph</em> + Greek <em>moros</em>, foolish), a joke from the 1600s about second-year students who think they know everything. The root gives you the history; usage gives you the current meaning; you need both. <strong>Finally, spelling changes disguise roots.</strong> <em>Cred</em> appears as <em>creed</em>, <em>vis</em> appears as <em>view</em>, <em>fac</em> appears as <em>fect</em>, <em>fect</em> and <em>fic</em>. Rootly's variant matching handles these automatically, and noticing the pattern yourself is one of the great pleasures of the method.</p>
+
+<h2>Who this word root dictionary is for</h2>
+<p>Students preparing for the GRE, SAT, GMAT or civil-service exams get the most obvious benefit: faster vocabulary acquisition and a guessing strategy for unknown words. But the audience is wider. <strong>Writers and editors</strong> use roots to choose the exact shade of meaning — knowing that <em>eloquent</em> is "speaking out well" (<em>e-</em> + <em>loqu</em>) sharpens word choice. <strong>Science and medical students</strong> meet Greek roots daily; decoding <em>osteoporosis</em> (<em>oste</em>, bone + <em>por</em>, pore + <em>-osis</em>, condition) beats memorizing it cold. <strong>ESL learners</strong> find that roots compress the most intimidating part of English — its huge Latinate vocabulary — into a few dozen reusable parts. <strong>Curious readers</strong> just enjoy discovering that <em>disaster</em> means "bad star" (<em>dis-</em> + <em>aster</em>) and <em>salary</em> comes from Roman soldiers' salt money. And <strong>teachers</strong> can project the decoder in class and turn any vocabulary list into a live etymology lesson.</p>
+<p>Everything on this page runs entirely in your browser: the decoder, the 285-entry dictionary, the quiz and the exam packs. There is no account, no usage limit and no data leaving your device — type freely. Start with the decoder above: try <strong>transportation</strong>, <strong>photograph</strong>, <strong>democracy</strong> or <strong>unbelievable</strong>, watch the morphemes fan out in violet, amber and teal, and follow the family trees wherever they lead. Every word you decode this way teaches you five more. That is the quiet superpower of roots — and now it is a search box away.</p>
+</article>
+
+<!-- ============ FAQS ============ -->
+<div class="mt-8">
+<h2 class="serif text-2xl font-black mb-4">Frequently asked questions</h2>
+<div class="grid gap-3">
+<details class="faq"><summary>What is a word root decoder?</summary><p>A word root decoder breaks an English word into its morphemes — prefixes, roots and suffixes — and shows the meaning and origin of each part. For example, it decodes "transport" as <em>trans</em> (Latin, "across") + <em>port</em> (Latin, "carry"), so the word literally means "carry across". Rootly does this instantly for any word you type, using a built-in database of 285 Greek, Latin and Germanic roots.</p></details>
+<details class="faq"><summary>How many Greek and Latin roots are in the Rootly word root dictionary?</summary><p>The Rootly word root dictionary contains 285 roots: 142 Latin, 98 Greek and 44 Germanic, plus 92 prefixes and 78 suffixes. Every root entry includes its meaning, spelling variants and a word-family list so you can see all the English words grown from the same root.</p></details>
+<details class="faq"><summary>Can learning root words really improve my vocabulary for GRE and SAT?</summary><p>Yes. Test makers recycle a small set of high-frequency roots: roughly 60 Greek and Latin roots account for a huge share of hard GRE and SAT words. Rootly's GRE and SAT packs isolate the 20 most productive roots per exam, and the "guess from roots" quiz trains you to infer an unknown word's meaning from its parts — the exact skill vocabulary questions reward.</p></details>
+<details class="faq"><summary>What is the difference between a prefix, a root and a suffix?</summary><p>A root carries the core meaning of a word (<em>port</em> = carry). A prefix attaches to the front and modifies direction or intensity (<em>trans-</em> = across). A suffix attaches to the end and usually changes the word's grammar or shades its meaning (<em>-ation</em> = the act of). Rootly color-codes every morpheme by origin — violet for Greek, amber for Latin, teal for Germanic — so you can see the word's history at a glance.</p></details>
+<details class="faq"><summary>What does Rootly do with a word it cannot decode?</summary><p>Some English words have no classical root — they are Germanic compounds like "replay", or their history is too tangled for a simple split. In that case Rootly tells you honestly that no root was identified instead of inventing a fake breakdown, and suggests trying one of the example words or searching the root dictionary directly.</p></details>
+<details class="faq"><summary>Is Rootly free to use without signing up?</summary><p>Yes. Rootly offers unlimited free usage of the decoder, the full root dictionary, the roots quiz and the GRE/SAT packs. There is no signup, no paywall and no watermark — everything runs in your browser.</p></details>
+</div>
+</div>
+
+<footer class="mt-10 pt-6 border-t text-center text-sm" style="border-color:#e7dfc9; color:#78716c">
+  <p class="serif font-bold text-base" style="color:#292524">Rootly — decode every word to its roots.</p>
+  <p class="mt-1">Free word root decoder · 285-entry word root dictionary · greek latin roots quiz · GRE/SAT packs. No signup, no paywall.</p>
+</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function $(id) { return document.getElementById(id); }
+
+  /* ---------- tabs ---------- */
+  var tabs = ['decoder', 'dict', 'quiz', 'packs'];
+  tabs.forEach(function (t) {
+    $('tab-' + t).addEventListener('click', function () {
+      tabs.forEach(function (u) {
+        $('tab-' + u).classList.toggle('active', u === t);
+        $('panel-' + u).classList.toggle('hidden', u !== t);
+      });
+    });
+  });
+
+  /* ---------- stat line ---------- */
+  try {
+    var st = rlStats();
+    $('stat-line').textContent = st.roots + ' roots · ' + st.prefixes + ' prefixes · ' + st.suffixes + ' suffixes';
+  } catch (e) {}
+
+  /* ---------- decoder ---------- */
+  var EXAMPLES = ['transportation', 'photograph', 'democracy', 'unbelievable', 'telescope', 'benevolent', 'microscope', 'contradict'];
+  var chipsBox = $('example-chips');
+  EXAMPLES.forEach(function (w) {
+    var b = document.createElement('button');
+    b.className = 'chip-word';
+    b.textContent = w;
+    b.addEventListener('click', function () { $('word-input').value = w; doDecode(); });
+    chipsBox.appendChild(b);
+  });
+
+  function kindLabel(k) {
+    return { prefix: 'PREFIX', root: 'ROOT', suffix: 'SUFFIX', link: 'LINK' }[k] || k.toUpperCase();
+  }
+
+  function renderMorphemes(list) {
+    var box = $('morpheme-list');
+    box.innerHTML = '';
+    list.forEach(function (m, i) {
+      var color = m.kind === 'link' ? '#a8a29e' : rlOriginColor(m.origin);
+      var card = document.createElement('div');
+      card.className = 'morph';
+      card.style.borderColor = color;
+      card.innerHTML =
+        '<div class="k" style="color:' + color + '">' + esc(kindLabel(m.kind)) + '</div>' +
+        '<div class="serif text-2xl font-black mt-0.5">' + esc(m.part) + '</div>' +
+        '<div class="text-sm font-semibold mt-0.5">' + esc(m.meaning) + '</div>' +
+        '<div class="text-xs mt-1" style="color:#78716c"><span class="origin-dot" style="background:' + color + '"></span>' + esc(m.origin) + '</div>';
+      box.appendChild(card);
+      if (i < list.length - 1) {
+        var plus = document.createElement('div');
+        plus.className = 'self-center text-2xl font-black';
+        plus.style.color = '#d6c9a8';
+        plus.textContent = '+';
+        box.appendChild(plus);
+      }
+    });
+  }
+
+  function renderFamilyTree(morphemes) {
+    var box = $('family-tree');
+    box.innerHTML = '';
+    var roots = morphemes.filter(function (m) { return m.kind === 'root' && m.root; });
+    if (!roots.length) return;
+    var h = document.createElement('h3');
+    h.className = 'serif text-xl font-black mb-3';
+    h.textContent = 'Word-family trees';
+    box.appendChild(h);
+    roots.forEach(function (m) {
+      var fam = rlWordFamily(m.root);
+      if (!fam.length) return;
+      var color = rlOriginColor(m.origin);
+      var wrap = document.createElement('div');
+      wrap.className = 'rounded-xl border-2 bg-white p-4 mb-3';
+      wrap.style.borderColor = color;
+      var head = document.createElement('div');
+      head.className = 'flex items-center gap-3 flex-wrap';
+      head.innerHTML =
+        '<span class="serif text-2xl font-black px-3 py-1 rounded-lg text-white" style="background:' + color + '">' + esc(m.root) + '</span>' +
+        '<span class="text-sm font-semibold" style="color:#78716c">“' + esc(m.meaning) + '” · ' + esc(m.origin) + ' · ' + fam.length + ' words share this root</span>';
+      wrap.appendChild(head);
+      var line = document.createElement('div');
+      line.className = 'tree-line';
+      line.style.height = '18px';
+      wrap.appendChild(line);
+      var grid = document.createElement('div');
+      grid.className = 'flex flex-wrap gap-2 justify-center pt-1';
+      fam.forEach(function (w) {
+        var c = document.createElement('button');
+        c.className = 'chip-word';
+        c.textContent = w;
+        c.title = 'Decode ' + w;
+        c.addEventListener('click', function () { $('word-input').value = w; doDecode(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+        grid.appendChild(c);
+      });
+      wrap.appendChild(grid);
+      box.appendChild(wrap);
+    });
+  }
+
+  function doDecode() {
+    var raw = $('word-input').value;
+    var d = rlDecodeWord(raw);
+    var note = $('decode-note'), res = $('decode-result');
+    note.classList.add('hidden');
+    res.classList.add('hidden');
+    if (d.note === 'empty' || d.note === 'too-short') {
+      note.textContent = 'Type a word with at least 3 letters to decode it.';
+      note.classList.remove('hidden');
+      return;
+    }
+    if (!d.ok) {
+      note.textContent = 'No classical root identified in "' + d.word + '". Try an example word above, or search the Root Dictionary.';
+      note.classList.remove('hidden');
+      return;
+    }
+    res.classList.remove('hidden');
+    renderMorphemes(d.morphemes);
+    renderFamilyTree(d.morphemes);
+    if (d.note === 'partial') {
+      note.textContent = 'Best-effort breakdown — one part was matched approximately.';
+      note.classList.remove('hidden');
+    } else if (d.note === 'verified') {
+      note.textContent = 'Hand-verified breakdown from the Rootly etymology desk.';
+      note.classList.remove('hidden');
+    }
+  }
+  $('decode-btn').addEventListener('click', doDecode);
+  $('word-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') doDecode(); });
+
+  /* ---------- dictionary ---------- */
+  var dictOrigin = 'all';
+  function renderDict() {
+    var q = $('root-search').value;
+    var list = rlSearchRoots(q);
+    if (dictOrigin !== 'all') list = list.filter(function (e) { return rlOriginName(e.o).toLowerCase() === dictOrigin; });
+    $('dict-count').textContent = list.length + ' of ' + rlRootCount() + ' roots';
+    var grid = $('root-grid');
+    grid.innerHTML = '';
+    list.slice(0, 300).forEach(function (e) {
+      var color = rlOriginColor(rlOriginName(e.o));
+      var card = document.createElement('div');
+      card.className = 'root-card';
+      card.innerHTML =
+        '<div class="flex items-center justify-between gap-2">' +
+          '<span class="serif text-xl font-black">' + esc(e.r) + '</span>' +
+          '<span class="text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full text-white" style="background:' + color + '">' + esc(rlOriginName(e.o)) + '</span>' +
+        '</div>' +
+        '<div class="text-sm font-semibold mt-0.5">“' + esc(e.m) + '”</div>' +
+        '<div class="text-xs mt-1.5 leading-relaxed" style="color:#78716c">' + e.f.slice(0, 6).map(esc).join(' · ') + '</div>';
+      grid.appendChild(card);
+    });
+  }
+  $('root-search').addEventListener('input', renderDict);
+  document.querySelectorAll('#origin-filter .pill').forEach(function (p) {
+    p.addEventListener('click', function () {
+      document.querySelectorAll('#origin-filter .pill').forEach(function (x) { x.classList.remove('active'); });
+      p.classList.add('active');
+      dictOrigin = p.getAttribute('data-origin');
+      renderDict();
+    });
+  });
+  renderDict();
+
+  /* ---------- quiz ---------- */
+  var qIdx = 0, qScore = 0, qTotal = 0, qAnswered = false;
+  function renderQuiz() {
+    qAnswered = false;
+    var q = rlQuizQuestion(qIdx);
+    $('quiz-word').textContent = q.word;
+    var seg = $('quiz-segments');
+    seg.innerHTML = '';
+    q.segments.forEach(function (s, i) {
+      var chip = document.createElement('span');
+      chip.className = 'chip-word';
+      chip.style.borderColor = '#7c3aed';
+      chip.innerHTML = '<strong>' + esc(s.part) + '</strong> = ' + esc(s.meaning);
+      seg.appendChild(chip);
+      if (i < q.segments.length - 1) {
+        var plus = document.createElement('span');
+        plus.className = 'font-black';
+        plus.style.color = '#d6c9a8';
+        plus.textContent = '+';
+        seg.appendChild(plus);
+      }
+    });
+    var box = $('quiz-choices');
+    box.innerHTML = '';
+    q.choices.forEach(function (c, i) {
+      var b = document.createElement('button');
+      b.className = 'quiz-choice';
+      b.textContent = c;
+      b.addEventListener('click', function () { answerQuiz(i, q.answer, b); });
+      box.appendChild(b);
+    });
+    $('quiz-feedback').textContent = '';
+  }
+  function answerQuiz(i, correct, btn) {
+    if (qAnswered) return;
+    qAnswered = true;
+    qTotal++;
+    var btns = $('quiz-choices').children;
+    for (var k = 0; k < btns.length; k++) {
+      btns[k].disabled = true;
+      if (k === correct) btns[k].classList.add('correct');
+    }
+    var fb = $('quiz-feedback');
+    if (i === correct) {
+      qScore++;
+      fb.textContent = 'Correct! The roots told you the answer.';
+      fb.style.color = '#059669';
+    } else {
+      btn.classList.add('wrong');
+      fb.textContent = 'Not quite — combine the root meanings and try the next one.';
+      fb.style.color = '#dc2626';
+    }
+    $('quiz-score').textContent = 'Score ' + qScore + ' / ' + qTotal;
+  }
+  $('quiz-next').addEventListener('click', function () { qIdx++; renderQuiz(); });
+  renderQuiz();
+
+  /* ---------- packs ---------- */
+  function renderPack(elId, pack) {
+    var box = $(elId);
+    box.innerHTML = '';
+    pack.roots.forEach(function (r) {
+      var color = rlOriginColor(r.origin);
+      var row = document.createElement('div');
+      row.className = 'flex items-baseline gap-2 text-sm border-b pb-1.5';
+      row.style.borderColor = '#f0e9d6';
+      row.innerHTML =
+        '<span class="origin-dot" style="background:' + color + '"></span>' +
+        '<strong class="serif text-base">' + esc(r.root) + '</strong>' +
+        '<span style="color:#78716c">“' + esc(r.meaning) + '”</span>';
+      box.appendChild(row);
+    });
+  }
+  try {
+    var packs = rlPacks();
+    renderPack('pack-gre', packs.gre);
+    renderPack('pack-sat', packs.sat);
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
